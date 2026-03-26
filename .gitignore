@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Models (large binary files)
+models/*.gguf
+models/*.onnx
+models/*.onnx.json
+models/*.bin
+
+# Environment
+.env
+
+# OS
+.DS_Store
