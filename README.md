@@ -131,6 +131,42 @@ Models are stored in `models/` and excluded from git. You can swap them:
 - **TTS voice:** Browse [Piper voices](https://github.com/rhasspy/piper/blob/master/VOICES.md). Download the `.onnx` + `.onnx.json` pair.
 - **Whisper:** Change `MODEL_SIZE` in `kian/stt.py` (`tiny`, `base`, `small`, `medium`).
 
+## Headless Mode (recommended for production / toy use)
+
+Running without the GNOME desktop frees ~1-1.3 GB of RAM, which can allow full GPU offload of the LLM for much faster inference.
+
+**Switch to headless (persists across reboot):**
+
+```bash
+sudo systemctl set-default multi-user.target
+sudo reboot
+```
+
+You'll get a text console login on HDMI with keyboard input. You can also SSH in.
+
+**Switch back to desktop:**
+
+```bash
+sudo systemctl set-default graphical.target
+sudo reboot
+```
+
+**One-time switch (no reboot, no permanent change):**
+
+```bash
+# Drop to text console
+sudo systemctl isolate multi-user.target
+
+# Go back to desktop
+sudo systemctl isolate graphical.target
+```
+
+Note: PulseAudio may not auto-start in headless mode. If audio breaks, start it manually:
+
+```bash
+pulseaudio --start
+```
+
 ## Memory Budget (~8GB)
 
 | Component | RAM |

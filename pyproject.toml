@@ -5,14 +5,13 @@ description = "Voice assistant: VAD → Whisper → Qwen3.5-4B → Piper TTS"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "webrtcvad>=2.0.10",
+    "onnxruntime>=1.17",
     "faster-whisper>=1.1.0",
     "llama-cpp-python>=0.3.19",
     "piper-tts>=1.4",
     "sounddevice>=0.5",
     "numpy>=1.24",
     "huggingface-hub>=1.8.0",
-    "setuptools<82",
 ]
 
 [build-system]

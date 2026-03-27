@@ -1,10 +1,9 @@
 """Text-to-speech using Piper with playback thread."""
 
 import asyncio
-import io
 import queue
+import random
 import threading
-import wave
 
 import numpy as np
 import sounddevice as sd
@@ -13,14 +12,21 @@ from piper import PiperVoice
 from piper.config import SynthesisConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODELS_DIR = PROJECT_ROOT / "models"
 TTS_SAMPLE_RATE = 22050  # Piper default
+
+VOICES = list(MODELS_DIR.glob("en_*-medium.onnx"))
 
 
 class TTSPlayer:
     """Synthesizes text and plays audio via a background thread."""
 
-    def __init__(self, model_path: str = str(PROJECT_ROOT / "models" / "en_US-lessac-medium.onnx"),
+    def __init__(self, model_path: str | None = None,
                  speed: float = 1.0, pitch_shift: float = 1.0):
+        if model_path is None:
+            chosen = random.choice(VOICES)
+            model_path = str(chosen)
+        print(f"[TTS] voice: {Path(model_path).stem}")
         self._voice = PiperVoice.load(model_path)
         self._syn_config = SynthesisConfig(length_scale=1.0 / speed)
         self._playback_rate = int(TTS_SAMPLE_RATE * pitch_shift)  # higher = raised pitch
@@ -43,8 +49,22 @@ class TTSPlayer:
             chunks.append(audio_chunk.audio_float_array)
         return np.concatenate(chunks)
 
+    # Pronunciation overrides: word → how to say it
+    PRONUNCIATION = {
+        "Kian": "Key-in",
+    }
+
+    def _fix_pronunciation(self, text: str) -> str:
+        import re
+        text = text.replace("*", "")
+        text = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf\u2300-\u23ff\ufe0f]', '', text)
+        for word, replacement in self.PRONUNCIATION.items():
+            text = text.replace(word, replacement)
+        return text
+
     async def speak(self, text: str):
         """Synthesize text and queue for playback."""
+        text = self._fix_pronunciation(text)
         loop = asyncio.get_event_loop()
         audio = await loop.run_in_executor(None, self._synthesize, text)
         self._audio_queue.put(audio)

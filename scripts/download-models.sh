@@ -7,6 +7,14 @@ cd "$MODELS_DIR"
 
 echo "Downloading models to $MODELS_DIR ..."
 
+# Silero VAD ONNX (~2.3MB)
+if [ ! -f silero_vad.onnx ]; then
+    echo "Downloading Silero VAD model..."
+    wget -q --show-progress https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx
+else
+    echo "Silero VAD already downloaded, skipping."
+fi
+
 # Piper TTS voice (~75MB)
 if [ ! -f en_US-lessac-medium.onnx ]; then
     echo "Downloading Piper TTS voice model..."

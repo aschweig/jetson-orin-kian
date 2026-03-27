@@ -337,10 +337,9 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "llama-cpp-python" },
     { name = "numpy" },
+    { name = "onnxruntime" },
     { name = "piper-tts" },
-    { name = "setuptools" },
     { name = "sounddevice" },
-    { name = "webrtcvad" },
 ]
 
 [package.metadata]
@@ -349,10 +348,9 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=1.8.0" },
     { name = "llama-cpp-python", specifier = ">=0.3.19" },
     { name = "numpy", specifier = ">=1.24" },
+    { name = "onnxruntime", specifier = ">=1.17" },
     { name = "piper-tts", specifier = ">=1.4" },
-    { name = "setuptools", specifier = "<82" },
     { name = "sounddevice", specifier = ">=0.5" },
-    { name = "webrtcvad", specifier = ">=2.0.10" },
 ]
 
 [[package]]
@@ -778,9 +776,3 @@ sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac8
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548", size = 44614, upload-time = "2025-08-25T13:49:24.86Z" },
 ]
-
-[[package]]
-name = "webrtcvad"
-version = "2.0.10"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/89/34/e2de2d97f3288512b9ea56f92e7452f8207eb5a0096500badf9dfd48f5e6/webrtcvad-2.0.10.tar.gz", hash = "sha256:f1bed2fb25b63fb7b1a55d64090c993c9c9167b28485ae0bcdd81cf6ede96aea", size = 66156, upload-time = "2017-01-07T23:05:18.732Z" }
