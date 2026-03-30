@@ -1,0 +1,148 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{titlesec}
+
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+
+\title{\textbf{Kian: A Fully Offline Voice Assistant for Children's Education}}
+\author{Aaron Schweiger}
+\date{2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Kian is an open-source, fully offline voice assistant designed for children's education.
+Running entirely on an NVIDIA Jetson Orin, it requires no internet connection and no parent-managed accounts---children interact through speech alone.
+A multi-stage content filtering pipeline reduces exposure to harmful material, while a novel LaTeX-to-speech post-processing system makes audio-based mathematical question answering feasible.
+This paper describes the architecture, design rationale, and key tradeoffs of the system.
+\end{abstract}
+
+\section{Motivation}
+
+Voice assistants have become a natural interface for children to explore questions, practice concepts, and satisfy curiosity.
+However, existing solutions depend on cloud services, raising concerns about privacy, availability, and access control.
+
+\begin{itemize}[nosep]
+  \item \textbf{Privacy.} Children's voice data is sensitive. Cloud-based systems transmit raw audio to remote servers, creating risks under regulations such as COPPA. An offline system ensures that no audio or conversation data ever leaves the device.
+  \item \textbf{Connectivity.} Many educational settings---rural schools, outdoor classrooms, vehicles, areas with unreliable infrastructure---lack consistent internet access. A fully on-device system operates anywhere.
+  \item \textbf{Autonomy.} Children should be able to interact with an educational tool without needing a parent's phone, a managed account, or an app store. Kian is controlled entirely through speech: changing the persona, adjusting volume, setting grade level, and resetting context are all voice commands.
+\end{itemize}
+
+\section{System Architecture}
+
+Kian is structured as an asynchronous pipeline of five stages, all running on-device:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Voice Activity Detection (VAD).} Silero VAD (ONNX, ${\sim}2$\,MB) monitors the microphone stream at 48\,kHz, downsampled to 16\,kHz for inference. Speech segments are extracted with a 1.2\,s silence threshold. A 30-second maximum prevents unbounded memory growth from sustained noise.
+  \item \textbf{Speech-to-Text (STT).} Faster-whisper with the \texttt{small.en} model transcribes detected speech segments using int8 quantization.
+  \item \textbf{Language Model (LLM).} Qwen3.5-2B, quantized to Q4\_K\_M (4-bit), runs via llama.cpp with flash attention and full GPU offload. The 2048-token context window is managed by dropping oldest conversation turns when history exceeds 1500 tokens.
+  \item \textbf{Content Filtering.} A streaming n-gram detector checks each token as it is generated. On match, generation halts immediately and the conversation context is reset. A secondary word filter in the TTS stage provides defense in depth.
+  \item \textbf{Text-to-Speech (TTS).} Piper TTS synthesizes speech from text fragments, streamed to a persistent ALSA output to avoid underruns. A LaTeX-to-speech post-processor converts mathematical notation before synthesis.
+\end{enumerate}
+
+\noindent The pipeline is fully streaming: TTS begins speaking the first sentence while the LLM is still generating subsequent ones. Barge-in detection monitors microphone levels during playback, allowing the child to interrupt at any sentence boundary.
+
+\section{Hardware Platform}
+
+Kian targets the NVIDIA Jetson Orin Nano (8\,GB unified memory). The choice is driven by two properties of interactive voice systems:
+
+\begin{itemize}[nosep]
+  \item \textbf{Time-to-first-token (TTFT) dominates perceived latency.} In a conversational loop, the child is waiting from the moment they stop speaking until the assistant begins responding. Token generation rate (tok/s) matters less---even modest throughput produces speech faster than it can be listened to. What matters is how quickly the first token arrives.
+  \item \textbf{GPU acceleration with large memory bandwidth.} The Jetson Orin's GPU and unified memory architecture provide the memory bandwidth needed to keep TTFT low for quantized transformer inference, without the overhead of discrete GPU memory transfers.
+\end{itemize}
+
+\noindent Running headless (without a desktop environment) frees 1--1.3\,GB of RAM, improving GPU layer offload. The total memory budget is approximately:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+\toprule
+Component & Memory \\
+\midrule
+OS / system & $\sim$1.5\,GB \\
+LLM (Qwen3.5-2B Q4\_K\_M) & $\sim$1.5\,GB \\
+STT (Whisper small.en) & $\sim$0.5\,GB \\
+VAD (Silero) + TTS (Piper) & $\sim$0.2\,GB \\
+KV cache + buffers & $\sim$1--2\,GB \\
+\midrule
+Headroom & $\sim$2--3\,GB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Speech-Only Control}
+
+A core design principle is that no screen, keyboard, or companion device is required. All configuration is performed through natural speech commands:
+
+\begin{itemize}[nosep]
+  \item \textbf{Identity:} ``Your name is Sophie'' or ``I'll call you Max'' changes the assistant's persona and persists the choice across sessions.
+  \item \textbf{Grade level:} ``I'm in second grade'' or ``I'm in grade 5'' adjusts vocabulary and explanation complexity. Supports spoken numbers (``two'', ``second'') and digits alike, for grades pre-K through 12.
+  \item \textbf{Volume:} ``Whisper'', ``inside voice'', ``speak up'', and ``shout'' map to four volume presets (30\%, 50\%, 80\%, 100\%) controlled via PulseAudio.
+  \item \textbf{Context:} ``Let's start fresh'' or ``forget everything'' resets conversation history. Eight minutes of silence triggers an automatic reset.
+  \item \textbf{Voice:} ``Change your voice'' or ``can I talk to someone else'' switches to a different TTS voice.
+\end{itemize}
+
+\noindent All settings---name, grade, voice, and volume---are persisted to disk and restored on startup.
+
+\section{Content Safety}
+
+Children's content filtering requires multiple layers, since no single mechanism is sufficient:
+
+\begin{enumerate}[nosep]
+  \item \textbf{System prompt.} The LLM is instructed to behave as an educational cartoon animal speaking to a child at a specific grade level. This biases generation toward age-appropriate content.
+  \item \textbf{Streaming token filter.} A sliding-window n-gram matcher checks every token against a curated list of 100+ prohibited words and phrases spanning profanity, slurs, sexual content, violence, drug references, and adult/gambling websites. Detection is immediate---the response is discarded, the context is reset, and a neutral deflection is spoken.
+  \item \textbf{TTS word filter.} A final pass before speech synthesis replaces any remaining problematic words with safe alternatives (e.g., ``donkey'' for ``ass'').
+\end{enumerate}
+
+\noindent The filter list is maintained as a plain text file, making it straightforward for educators and parents to review and extend.
+
+\section{Mathematical Post-Processing}
+
+Audio-based educational assistants face a fundamental challenge with mathematics: spoken language is inherently sequential and ambiguous for mathematical expressions. ``a plus b over c'' could mean $a + \frac{b}{c}$ or $\frac{a+b}{c}$.
+
+Kian addresses this by allowing the LLM to emit standard LaTeX notation, which is converted to unambiguous spoken English before TTS synthesis. The system:
+
+\begin{itemize}[nosep]
+  \item Detects math regions via standard delimiters (\texttt{\$...\$}, \texttt{\$\$...\$\$}, \verb|\(...\)|, \verb|\[...\]|, and \verb|\begin{equation}|).
+  \item Converts fractions, roots, superscripts, subscripts, Greek letters, operators, set theory notation, calculus operators, and quantifiers.
+  \item Applies disambiguation rules: compound sub-expressions (those containing addition or subtraction) are wrapped with ``the quantity \ldots end quantity'' in contexts where boundaries are ambiguous (e.g., square roots), while fractions use ``over'' as a natural delimiter.
+  \item Distinguishes unary negative from binary minus: $-x$ becomes ``negative x'' while $a - b$ becomes ``a minus b''.
+  \item Separates adjacent single-letter variables (e.g., $ix$ becomes ``i x'') to prevent TTS from reading them as words, while preserving known multi-letter tokens like function names.
+  \item Leaves prose outside math delimiters completely untouched, so punctuation like ``Hey there!'' is never misinterpreted as factorial.
+\end{itemize}
+
+\noindent This makes it feasible for a child to ask ``what is the quadratic formula?'' and hear a correct, unambiguous spoken rendering of $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$.
+
+\section{Latency Considerations}
+
+In interactive voice applications, the relevant metric is \emph{turn latency}: the time from when the child stops speaking to when the assistant begins responding. This decomposes as:
+
+$$t_{\text{turn}} = t_{\text{silence}} + t_{\text{STT}} + t_{\text{TTFT}} + t_{\text{TTS,first}}$$
+
+\noindent where $t_{\text{silence}}$ is the VAD silence detection window (1.2\,s), $t_{\text{STT}}$ is transcription time, $t_{\text{TTFT}}$ is the LLM's time to first token, and $t_{\text{TTS,first}}$ is the time to synthesize and begin playing the first sentence fragment.
+
+Crucially, \emph{tokens per second} is not the bottleneck. Even at moderate generation rates, text accumulates faster than it can be spoken. The streaming architecture exploits this: TTS begins on the first clause boundary (minimum 25 characters) while the LLM continues generating. The child hears a continuous response with natural pauses at sentence and clause boundaries (500\,ms and 200\,ms respectively).
+
+The Jetson Orin's value proposition is minimizing $t_{\text{TTFT}}$: its GPU and high memory bandwidth accelerate the prefill phase of transformer inference, which is the compute-intensive step that determines when the first token appears.
+
+\section{Limitations and Future Work}
+
+\begin{itemize}[nosep]
+  \item \textbf{Language support} is currently English-only across all pipeline stages.
+  \item \textbf{Content filtering} is rule-based and cannot catch novel circumventions or contextually inappropriate content that uses benign words. Adversarial probing by children is a realistic threat model.
+  \item \textbf{Mathematical rendering} handles standard LaTeX but not all edge cases (e.g., matrices, piecewise functions, or deeply nested expressions).
+  \item \textbf{No visual output} means that some mathematical concepts (geometry, graphs) are difficult to convey through speech alone.
+\end{itemize}
+
+\section{Conclusion}
+
+Kian demonstrates that a practical, fully offline educational voice assistant can run on modest edge hardware. By keeping all processing on-device, it provides strong privacy guarantees and operates without internet access. Speech-only control eliminates the need for screens or parent-managed accounts. Multi-layered content filtering and LaTeX-to-speech post-processing address two key challenges of building voice interfaces for children: safety and mathematical communication.
+
+\end{document}

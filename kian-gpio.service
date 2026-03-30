@@ -1,0 +1,13 @@
+[Unit]
+Description=Kian GPIO pinmux setup
+After=systemd-udevd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/busybox devmem 0x2430068 w 0x8
+ExecStart=/usr/bin/busybox devmem 0x2430070 w 0x8
+ExecStart=/usr/bin/busybox devmem 0x2434080 w 0x5
+
+[Install]
+WantedBy=multi-user.target

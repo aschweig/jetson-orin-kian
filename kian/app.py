@@ -220,10 +220,11 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
     print()
     grade_str = llm_mod._GRADE_NAMES.get(llm_mod.child_grade, f"grade {llm_mod.child_grade}")
     print(f"Ready. I am {llm_mod.assistant_name}, talking to a child in {grade_str}.")
-    print("(press Q + Enter to quit)")
+    quit_task = None
+    if sys.stdin.isatty():
+        print("(press Q + Enter to quit)")
+        quit_task = asyncio.create_task(watch_quit(shutdown))
     print()
-
-    quit_task = asyncio.create_task(watch_quit(shutdown))
     last_speech = time.monotonic()
 
     async for speech_audio in vad.stream_speech():
@@ -408,7 +409,8 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
         vad.resume()
         print()
 
-    quit_task.cancel()
+    if quit_task is not None:
+        quit_task.cancel()
     tts.stop()
     leds.off()
     print("Goodbye.")

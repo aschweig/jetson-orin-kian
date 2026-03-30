@@ -1,0 +1,237 @@
+# Words and phrases that trigger an immediate reset.
+# One entry per line, case-insensitive. Lines starting with # are ignored.
+
+# Profanity
+shpx
+shpxvat
+shpxre
+zbgureshpxre
+fuvg
+fuvggl
+ohyyfuvg
+nffubyr
+ovgpu
+ovgpul
+phag
+qnza
+qnzarq
+
+# Slurs
+avttre
+avttn
+puvax
+wnc
+jbc
+xvxr
+fcvp
+jrgonpx
+ergneq
+ergneqrq
+snttbg
+snt
+qlxr
+genaal
+
+# Kid slang / body humor
+obbovrf
+obbof
+jrvare
+jvrare
+ohggubyr
+ohgg penpx
+crr crr
+cbb cbb
+qvatyroreel
+gvggvrf
+
+# Sexual - words
+cbea
+cbeabtencul
+fzhg
+znfgheongvba
+znfgheongr
+frkl
+frkhny
+ahqr
+anxrq
+sryyngvb
+oybjwbo
+unaqwbo
+phaavyvathf
+betnfz
+betnfzrq
+pyvznk
+pyvznkrq
+rwnphyngr
+rwnphyngvba
+rerpgvba
+ohxxnxr
+enjqbt
+encr
+encrq
+encvfg
+encvat
+zbyrfg
+zbyrfgrq
+zbyrfgngvba
+fbqbzvmr
+fbqbzl
+vaprfg
+obaqntr
+srgvfu
+qvyqb
+ivoengbe
+travgnyf
+cravf
+intvan
+pyvgbevf
+fpebghz
+grfgvpyrf
+nebhfrq
+nebhfny
+rebgvp
+rebgvpn
+uragnv
+nany
+guerrfbzr
+betl
+cebfgvghgr
+cebfgvghgvba
+fgevccre
+rfpbeg
+ivetvavgl
+
+# Sexual - phrases
+jrag qbja ba
+tbvat qbja ba
+tbrf qbja ba
+hacebgrpgrq frk
+uneqpber frk
+univat frk
+unq frk
+znxr ybir
+znxvat ybir
+znqr ybir
+fyrrc jvgu
+fyrcg jvgu
+fyrrcvat jvgu
+ubbx hc
+ubbxrq hc
+ubbxvat hc
+tbg ynvq
+trggvat ynvq
+ghearq ba ol
+frkhnyyl nggenpgrq
+rng ure bhg
+rne zr bhg
+
+# Violence
+xvyy lbhefrys
+xvyy uvz
+xvyy ure
+ubj gb znxr n obzo
+ubj gb znxr n jrncba
+ubj gb uheg
+ubj gb cbvfba
+gb trg n tha
+gb ohl n tha
+phg lbhefrys
+phggvat lbhefrys
+raq lbhe yvsr
+raq gurve yvirf
+raq uvf yvsr
+raq ure yvsr
+
+# Drugs
+pbpnvar
+urebva
+zrgunzcurgnzvar
+zrgu
+penpx
+sragnaly
+bklpbagva
+crepbprg
+knank
+rpfgnfl
+xrgnzvar
+yfq
+fuebbzf
+jrrq
+znevwhnan
+rqvoyrf
+qno
+incr
+whhy
+fubg hc
+fubbgvat hc
+tbg uvtu
+tbg ernyyl uvtu
+trg uvtu
+fzbxr jrrq
+fzbxr cbg
+lbh vawrpg
+trggvat qehax
+trg qehax
+tbg qehax
+trggvat jnfgrq
+trg jnfgrq
+qnex jro
+qnexarg
+
+# Phrases
+fuhg hc
+lbh fhpx
+v ungr lbh
+lbh ner fghcvq
+lbh ner qhzo
+jvfu ur jbhyq qvr
+jvfu fur jbhyq qvr
+jvfu gurl jbhyq qvr
+fubbg hc gur
+
+# Adult/explicit websites
+cbeauho
+cbeauho.pbz
+kivqrbf
+kivqrbf.pbz
+erqghor
+erqghor.pbz
+kunzfgre
+kunzfgre.pbz
+lbhcbea
+lbhcbea.pbz
+oenmmref
+oenmmref.pbz
+pungheongr
+pungheongr.pbz
+baylsnaf
+baylsnaf.pbz
+kakk
+kakk.pbz
+yvirwnfzva
+yvirwnfzva.pbz
+
+# Gambling websites
+qensgxvatf
+qensgxvatf.pbz
+snaqhry
+snaqhry.pbz
+orgztz
+orgztz.pbz
+obinqn
+obinqn.pbz
+org365
+org365.pbz
+pnrfnef fcbegfobbx
+cbxrefgnef
+cbxrefgnef.pbz
+orgjnl
+orgjnl.pbz
+jvyyvnzuvyy
+jvyyvnzuvyy.pbz
+888pnfvab
+888cbxre
+fgnxr.pbz
+fgnxr
+ebborg
+ebborg.pbz

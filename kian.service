@@ -1,0 +1,21 @@
+[Unit]
+Description=Kian voice assistant
+After=network.target sound.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aaron/Projects/kian
+
+# Load device config (AUDIO_DEVICE, KIAN_ARGS, etc.)
+EnvironmentFile=-%h/Projects/kian/kian.env
+
+ExecStartPre=/home/aaron/Projects/kian/scripts/setup-audio.sh ${AUDIO_SPEAKER} ${AUDIO_MIC}
+ExecStart=/bin/bash -c '/home/aaron/.local/bin/uv run kian $KIAN_ARGS'
+Restart=on-failure
+RestartSec=5
+
+# Env: no interactive terminal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
