@@ -2,6 +2,8 @@
 
 A local voice assistant running entirely on-device. Designed for NVIDIA Jetson Orin (8GB), but works on any Linux machine with a microphone.
 
+![WIP](wip.jpg)
+
 **Pipeline:** Mic → Silero VAD → faster-whisper (STT) → LLM → Piper (TTS) → Speaker
 
 Two LLM backends:
