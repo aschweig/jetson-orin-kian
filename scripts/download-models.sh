@@ -24,13 +24,17 @@ else
     echo "Piper TTS voice already downloaded, skipping."
 fi
 
-# Qwen3.5-4B GGUF (~2.7GB)
-if [ ! -f Qwen3.5-4B-Q4_K_M.gguf ]; then
-    echo "Downloading Qwen3.5-4B Q4_K_M (~2.7GB)..."
-    wget -q --show-progress https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf
+# Qwen3.5-2B GGUF for llama.cpp (~1.6GB)
+if [ ! -f Qwen3.5-2B-Q4_K_M.gguf ]; then
+    echo "Downloading Qwen3.5-2B Q4_K_M (~1.6GB)..."
+    wget -q --show-progress https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf
 else
-    echo "Qwen3.5-4B GGUF already downloaded, skipping."
+    echo "Qwen3.5-2B GGUF already downloaded, skipping."
 fi
+
+# Qwen3 4B MLC -- auto-downloaded by the Docker container on first run.
+# To pre-pull the container image (~7GB):
+#   sudo docker pull dustynv/mlc:0.20.0-r36.4.0
 
 # Whisper (auto-downloaded on first run by faster-whisper)
 echo ""

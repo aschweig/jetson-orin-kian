@@ -48,6 +48,8 @@ class SileroVAD:
 class VADStream:
     """Streams mic audio and yields speech segments via Silero VAD."""
 
+    MAX_SPEECH_S = 30  # discard speech segments longer than this
+
     def __init__(self, threshold: float = 0.5, silence_ms: int = 1200):
         self._vad = SileroVAD()
         self._threshold = threshold
@@ -55,6 +57,10 @@ class VADStream:
         self._paused = False
         self._loop: asyncio.AbstractEventLoop | None = None
         self._queue: asyncio.Queue[np.ndarray | None] = asyncio.Queue()
+        # Ring buffer for barge-in level checks (keeps last ~50ms at 48kHz)
+        self._level_len = int(DEVICE_RATE * 0.05)
+        self._level_buf = np.zeros(self._level_len, dtype=np.float32)
+        self._level_pos = 0
 
     def pause(self):
         """Stop processing audio (call before STT/LLM/TTS)."""
@@ -68,13 +74,36 @@ class VADStream:
 
     def resume(self):
         """Resume processing audio (call after TTS completes)."""
+        # Drain any stale audio that queued up
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
         self._vad.reset()
         self._paused = False
 
+    def mic_rms(self) -> float:
+        """Return RMS of the level ring buffer (works while paused)."""
+        return float(np.sqrt(np.mean(self._level_buf ** 2)))
+
     def _audio_callback(self, indata, frames, time, status):
+        # Always update level ring buffer (for barge-in detection even while paused)
+        mono = indata[:, 0]
+        n = len(mono)
+        pos = self._level_pos
+        end = pos + n
+        if end <= self._level_len:
+            self._level_buf[pos:end] = mono
+        else:
+            first = self._level_len - pos
+            self._level_buf[pos:] = mono[:first]
+            self._level_buf[:n - first] = mono[first:]
+        self._level_pos = end % self._level_len
+
         if self._paused:
             return
-        audio = indata[:, 0].copy()
+        audio = mono.copy()
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._queue.put_nowait, audio)
 
@@ -105,6 +134,8 @@ class VADStream:
                 chunk_16k = chunk_48k[::DOWNSAMPLE_RATIO]
                 prob = self._vad(chunk_16k)
 
+                max_chunks = int(self.MAX_SPEECH_S * VAD_RATE / CHUNK_SAMPLES_16K)
+
                 if prob >= self._threshold:
                     speech_buf.append(chunk_16k)
                     silent_count = 0
@@ -118,3 +149,11 @@ class VADStream:
                         silent_count = 0
                         in_speech = False
                         self._vad.reset()
+
+                # Bail on excessively long speech — discard and restart
+                if in_speech and len(speech_buf) > max_chunks:
+                    print(f"[VAD] speech exceeded {self.MAX_SPEECH_S}s, discarding")
+                    speech_buf.clear()
+                    silent_count = 0
+                    in_speech = False
+                    self._vad.reset()

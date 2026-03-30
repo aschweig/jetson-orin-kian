@@ -7,17 +7,19 @@ wheels/
 *.egg-info
 .claude/
 
+# Temp files
+*.tmp
+
 # Virtual environments
 .venv
 
 # Models (large binary files)
-models/*.gguf
-models/*.onnx
-models/*.onnx.json
-models/*.bin
 
 # Environment
 .env
+
+# Per-device settings
+settings.json
 
 # OS
 .DS_Store
