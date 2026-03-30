@@ -23,3 +23,11 @@ settings.json
 
 # OS
 .DS_Store
+
+# Latex
+*.aux
+*.dvi
+*.pdf
+*.log
+*.out
+
