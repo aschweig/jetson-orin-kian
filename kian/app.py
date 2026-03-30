@@ -85,6 +85,9 @@ CONTROL_PHRASES = {
         "maximum volume",
         "max volume",
     },
+    "Reset all": {
+        "reset all",
+    },
 }
 
 # Also: "Your name is X", "I'll call you X", "I'm in 3rd grade", etc.
@@ -132,6 +135,7 @@ _ACTION_MAP = {
     "Inside voice": "inside_voice",
     "Loud": "loud",
     "Shout": "shout",
+    "Reset all": "reset_all",
 }
 
 
@@ -224,6 +228,9 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
     if sys.stdin.isatty():
         print("(press Q + Enter to quit)")
         quit_task = asyncio.create_task(watch_quit(shutdown))
+    await tts.speak("Hey Hi!")
+    tts.drain()
+
     print()
     last_speech = time.monotonic()
 
@@ -295,6 +302,13 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
                 wiki.reset()
                 grade_str = llm_mod._GRADE_NAMES.get(int(data), f"grade {data}")
                 response = f"Got it! {grade_str.capitalize()}!"
+            elif action == "reset_all":
+                llm_mod.assistant_name = "Kian"
+                llm_mod.save_settings()
+                llm.reset()
+                wiki.reset()
+                tts.set_voice("en_GB-alba-medium")
+                response = "OK! I'm Kian again!"
             elif action == "whisper":
                 tts.set_volume(VOLUME_WHISPER)
                 response = "OK, I'll whisper."
@@ -426,20 +440,64 @@ def parse_args():
         "--model",
         help="Model path or identifier (default depends on backend)",
     )
+    p.add_argument(
+        "--speaker",
+        help="Substring to match PulseAudio sink name (speaker)",
+    )
+    p.add_argument(
+        "--mic",
+        help="Substring to match PulseAudio source name (microphone)",
+    )
     return p.parse_args()
 
 
-def main():
-    # Suppress ALSA underrun warnings (cosmetic noise from PulseAudio ↔ ALSA layer)
-    import os
-    _stderr_fd = os.dup(2)
-    _devnull = os.open(os.devnull, os.O_WRONLY)
-    os.dup2(_devnull, 2)
-    os.close(_devnull)
-    # Restore stderr for Python's own output
-    sys.stderr = os.fdopen(_stderr_fd, "w")
+def setup_audio_devices(speaker_match: str | None, mic_match: str | None):
+    """Set PulseAudio sink/source for this process via environment variables.
 
+    Uses PULSE_SINK / PULSE_SOURCE which override PulseAudio defaults
+    per-process and can't be reset by module-default-device-restore.
+    Retries for up to 30s to handle USB devices not yet available at boot.
+    """
+    if not speaker_match and not mic_match:
+        return
+    import os
+    import pulsectl
+
+    for attempt in range(15):
+        with pulsectl.Pulse("kian-setup") as pulse:
+            sink_name = None
+            source_name = None
+            if speaker_match:
+                for s in pulse.sink_list():
+                    if speaker_match.lower() in s.name.lower():
+                        sink_name = s.name
+                        break
+            if mic_match:
+                for s in pulse.source_list():
+                    if ".monitor" in s.name:
+                        continue
+                    if mic_match.lower() in s.name.lower():
+                        source_name = s.name
+                        break
+
+            if (sink_name or not speaker_match) and (source_name or not mic_match):
+                if sink_name:
+                    os.environ["PULSE_SINK"] = sink_name
+                    print(f"[AUDIO] speaker: {sink_name}")
+                if source_name:
+                    os.environ["PULSE_SOURCE"] = source_name
+                    print(f"[AUDIO] mic: {source_name}")
+                return
+
+        print(f"[AUDIO] waiting for devices... (attempt {attempt + 1}/15)")
+        time.sleep(2)
+
+    print("[AUDIO] WARNING: devices not found after 30s")
+
+
+def main():
     args = parse_args()
+    setup_audio_devices(args.speaker, args.mic)
     try:
         asyncio.run(pipeline(backend=args.backend, model=args.model))
     except KeyboardInterrupt:

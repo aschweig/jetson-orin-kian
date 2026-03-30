@@ -151,6 +151,19 @@ class TTSPlayer:
         llm_mod.voice = chosen.stem
         llm_mod.save_settings()
 
+    def set_voice(self, stem: str):
+        """Switch to a specific voice by stem name and persist."""
+        matches = [v for v in VOICES if v.stem == stem]
+        if not matches:
+            print(f"[TTS] voice not found: {stem}")
+            return
+        chosen = matches[0]
+        self._model_path = chosen
+        print(f"[TTS] voice: {chosen.stem}")
+        self._voice = PiperVoice.load(str(chosen))
+        llm_mod.voice = chosen.stem
+        llm_mod.save_settings()
+
     def drain(self):
         """Wait for all queued audio to finish playing."""
         self._audio_queue.join()

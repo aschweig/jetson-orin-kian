@@ -9,8 +9,7 @@ WorkingDirectory=/home/aaron/Projects/kian
 # Load device config (AUDIO_DEVICE, KIAN_ARGS, etc.)
 EnvironmentFile=-%h/Projects/kian/kian.env
 
-ExecStartPre=/home/aaron/Projects/kian/scripts/setup-audio.sh ${AUDIO_SPEAKER} ${AUDIO_MIC}
-ExecStart=/bin/bash -c '/home/aaron/.local/bin/uv run kian $KIAN_ARGS'
+ExecStart=/bin/bash -c '/home/aaron/.local/bin/uv run kian --speaker "${AUDIO_SPEAKER}" --mic "${AUDIO_MIC}" $KIAN_ARGS'
 Restart=on-failure
 RestartSec=5
 

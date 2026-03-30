@@ -33,6 +33,8 @@ def run():
         # Grade clamping
         ("I'm in 15th grade", ("set_grade", "12")),
         ("I'm in 0th grade", ("set_grade", "1")),
+        # Reset all
+        ("Reset all", ("reset_all", None)),
         # Should NOT match
         ("What is your name", None),
         ("Tell me about grade 3", None),
