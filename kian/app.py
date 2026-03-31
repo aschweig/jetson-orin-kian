@@ -31,7 +31,8 @@ BARGEIN_THRESHOLD = 0.1  # 0.0–1.0, tune based on your mic
 # Split on sentence boundaries only (punctuation followed by space).
 SPLIT_RE = re.compile(r"([.!?])\s+")
 MIN_CHUNK_LEN = 25  # don't split tiny fragments
-PAUSE_SENTENCE_S = 0.300  # silence appended after each sentence
+PAUSE_SILENCE_S = 0.050   # 50ms silence to let TTS echo decay
+BARGEIN_LISTEN_S = 0.250  # mic listen window for barge-in
 SILENCE_RESET_S = 8 * 60  # reset conversation after 8 minutes of silence
 
 # --- Control phrases (matched case-insensitively, punctuation stripped) ---
@@ -172,6 +173,98 @@ def _match_control(text: str) -> tuple[str, str | None] | None:
 
     return None
 
+
+
+async def _stream_response(llm, tts, user_text, shutdown):
+    """Producer-consumer LLM→TTS pipeline with barge-in detection.
+
+    Producer (task 1): streams LLM tokens, splits into sentences, puts them
+    on a queue.  Stops early if the barge-in flag is set.
+
+    Consumer (task 2): takes sentences off the queue, plays them with a short
+    tail silence, then listens on the mic for barge-in.  Sets the flag and
+    exits if the user speaks.
+
+    Returns (interrupted, naughty_hit, full_response).
+    """
+    bargein = asyncio.Event()            # atomic flag
+    sentence_q: asyncio.Queue[str | None] = asyncio.Queue()
+    naughty_hit = False
+    full_response: list[str] = []
+
+    async def producer():
+        nonlocal naughty_hit
+        naughty = NaughtyDetector()
+        buf = ""
+        first_token = True
+        t_llm = time.monotonic()
+
+        async for token in llm.chat_stream(user_text):
+            if shutdown.is_set() or bargein.is_set():
+                break
+            if first_token:
+                print(f"[LLM {time.monotonic() - t_llm:.1f}s] first token")
+                first_token = False
+
+            if naughty.check(token):
+                print("[NAUGHTY] blocked")
+                naughty_hit = True
+                break
+
+            full_response.append(token)
+            buf += token
+
+            m = None
+            for candidate in SPLIT_RE.finditer(buf):
+                if candidate.end() >= MIN_CHUNK_LEN:
+                    m = candidate
+                    break
+            if m:
+                fragment = buf[: m.end()].strip()
+                buf = buf[m.end() :]
+                if fragment:
+                    await sentence_q.put(fragment)
+
+        # Flush remaining text
+        if buf.strip() and not bargein.is_set() and not shutdown.is_set() and not naughty_hit:
+            await sentence_q.put(buf.strip())
+
+        # Signal consumer to exit (only if not interrupted)
+        if not bargein.is_set():
+            await sentence_q.put(None)
+
+        print(f"[LLM {time.monotonic() - t_llm:.1f}s] {''.join(full_response)}")
+
+    async def consumer():
+        loop = asyncio.get_event_loop()
+        while True:
+            sentence = await sentence_q.get()
+            if sentence is None:
+                break
+
+            await tts.speak(sentence, tail_silence=PAUSE_SILENCE_S)
+            tts.drain()
+
+            # Listen for barge-in
+            rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S)
+            print(f"[RMS {rms:.3f}]")
+            if rms >= BARGEIN_THRESHOLD:
+                print("[INTERRUPTED]")
+                bargein.set()
+                break
+
+    producer_task = asyncio.create_task(producer())
+    consumer_task = asyncio.create_task(consumer())
+    await asyncio.gather(producer_task, consumer_task)
+
+    # Drain any leftover sentences from the queue
+    while not sentence_q.empty():
+        try:
+            sentence_q.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+
+    return bargein.is_set(), naughty_hit, full_response
 
 
 async def watch_quit(shutdown: asyncio.Event):
@@ -347,70 +440,17 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             llm.set_wiki_context(None)
         llm_input = text
 
-        # LLM → TTS streaming
-        t_llm = time.monotonic()
-        first_token = True
-        interrupted = False
-        naughty_hit = False
-        naughty = NaughtyDetector()
-        buf = ""
-        full_response = []
-        async for token in llm.chat_stream(llm_input):
-            if shutdown.is_set() or interrupted or naughty_hit:
-                break
-            if first_token:
-                print(f"[LLM {time.monotonic() - t_llm:.1f}s] first token")
-                first_token = False
-                rms = mic_rms()
-                if rms >= BARGEIN_THRESHOLD:
-                    print(f"[RMS {rms:.3f}]")
-                    print("[INTERRUPTED] (pre-speech)")
-                    interrupted = True
-                    break
-
-            # Check for naughty words before adding to output
-            if naughty.check(token):
-                print(f"[NAUGHTY] blocked")
-                naughty_hit = True
-                break
-
-            full_response.append(token)
-            buf += token
-            # Split on clause/sentence boundary with enough text.
-            # Find the latest split point that gives a chunk >= MIN_CHUNK_LEN.
-            m = None
-            for candidate in SPLIT_RE.finditer(buf):
-                if candidate.end() >= MIN_CHUNK_LEN:
-                    m = candidate
-                    break  # take the first one that's long enough
-            if m:
-                fragment = buf[: m.end()].strip()
-                buf = buf[m.end() :]
-                if fragment:
-                    # Speak with silence baked into the audio chunk
-                    await tts.speak(fragment, tail_silence=PAUSE_SENTENCE_S)
-                    tts.drain()
-                    # Barge-in check after sentence + pause have played
-                    rms = mic_rms()
-                    print(f"[RMS {rms:.3f}]")
-                    if rms >= BARGEIN_THRESHOLD:
-                        print("[INTERRUPTED]")
-                        tts.beep()
-                        tts.drain()
-                        await asyncio.sleep(1)
-                        interrupted = True
+        # LLM → TTS streaming (producer-consumer with barge-in)
+        interrupted, naughty_hit, full_response = await _stream_response(
+            llm, tts, llm_input, shutdown,
+        )
 
         if naughty_hit:
             llm.reset()
             wiki.reset()
             await tts.speak("I don't really know how to answer that.")
             tts.drain()
-        else:
-            # Flush remaining text
-            if buf.strip() and not shutdown.is_set() and not interrupted:
-                await tts.speak(buf.strip())
 
-        print(f"[LLM {time.monotonic() - t_llm:.1f}s] {''.join(full_response)}")
         tts.drain()
 
         # Reset Piper to clear any accumulated ONNX state

@@ -52,6 +52,8 @@ _TOPIC_PATTERNS = [
     r"can\s+you\s+tell\s+me\s+(?:more\s+)?about\s+(?:the\s+)?(?P<topic>.+)",
     # "can you teach me about X"
     r"can\s+you\s+teach\s+me\s+(?:more\s+)?about\s+(?:the\s+)?(?P<topic>.+)",
+    # "can you research/search (about/for) X"
+    r"can\s+you\s+(?:research|search|study|investigate)\s+(?:about\s+|for\s+)?(?:the\s+)?(?P<topic>.+)",
     # "can you check on X"
     r"can\s+you\s+check\s+on\s+(?:the\s+)?(?P<topic>.+)",
     # "on how X works"
