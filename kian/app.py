@@ -26,11 +26,12 @@ _VALID_NAMES = {
 }
 
 # Barge-in detection: RMS threshold for mic level between TTS sentences
-BARGEIN_THRESHOLD = 0.1  # 0.0–1.0, tune based on your mic
+BARGEIN_THRESHOLD = 0.05  # 0.0–1.0, tune based on your mic
 
 # Split on sentence boundaries only (punctuation followed by space).
 SPLIT_RE = re.compile(r"([.!?])\s+")
 MIN_CHUNK_LEN = 25  # don't split tiny fragments
+MAX_CHUNK_LEN = 400  # force-flush buffer if no sentence boundary found
 PAUSE_SILENCE_S = 0.050   # 50ms silence to let TTS echo decay
 BARGEIN_LISTEN_S = 0.250  # mic listen window for barge-in
 SILENCE_RESET_S = 8 * 60  # reset conversation after 8 minutes of silence
@@ -175,11 +176,28 @@ def _match_control(text: str) -> tuple[str, str | None] | None:
 
 
 
+def _is_repetitive(text: str, phrase_len: int = 3, max_repeats: int = 5) -> bool:
+    """Detect if text contains a short phrase repeated excessively."""
+    words = text.lower().split()
+    if len(words) < phrase_len * max_repeats:
+        return False
+    # Check the last N words for repeating n-grams
+    window = words[-(phrase_len * max_repeats * 3):]
+    counts: dict[tuple, int] = {}
+    for i in range(len(window) - phrase_len + 1):
+        ngram = tuple(window[i : i + phrase_len])
+        counts[ngram] = counts.get(ngram, 0) + 1
+        if counts[ngram] >= max_repeats:
+            return True
+    return False
+
+
 async def _stream_response(llm, tts, user_text, shutdown):
     """Producer-consumer LLM→TTS pipeline with barge-in detection.
 
     Producer (task 1): streams LLM tokens, splits into sentences, puts them
-    on a queue.  Stops early if the barge-in flag is set.
+    on a queue.  Stops early if the barge-in flag is set or if repetition
+    is detected (LLM loop).
 
     Consumer (task 2): takes sentences off the queue, plays them with a short
     tail silence, then listens on the mic for barge-in.  Sets the flag and
@@ -190,10 +208,11 @@ async def _stream_response(llm, tts, user_text, shutdown):
     bargein = asyncio.Event()            # atomic flag
     sentence_q: asyncio.Queue[str | None] = asyncio.Queue()
     naughty_hit = False
+    llm_loop = False
     full_response: list[str] = []
 
     async def producer():
-        nonlocal naughty_hit
+        nonlocal naughty_hit, llm_loop
         naughty = NaughtyDetector()
         buf = ""
         first_token = True
@@ -214,6 +233,12 @@ async def _stream_response(llm, tts, user_text, shutdown):
             full_response.append(token)
             buf += token
 
+            # Repetition detection on accumulated output
+            if _is_repetitive(buf):
+                print("[LLM] repetition loop detected, stopping")
+                llm_loop = True
+                break
+
             m = None
             for candidate in SPLIT_RE.finditer(buf):
                 if candidate.end() >= MIN_CHUNK_LEN:
@@ -224,16 +249,21 @@ async def _stream_response(llm, tts, user_text, shutdown):
                 buf = buf[m.end() :]
                 if fragment:
                     await sentence_q.put(fragment)
+            elif len(buf) >= MAX_CHUNK_LEN:
+                # No sentence boundary found — force-flush to avoid runaway buffer
+                print("[LLM] buffer overflow, force-flushing")
+                await sentence_q.put(buf.strip())
+                buf = ""
 
         # Flush remaining text
-        if buf.strip() and not bargein.is_set() and not shutdown.is_set() and not naughty_hit:
+        if buf.strip() and not bargein.is_set() and not shutdown.is_set() and not naughty_hit and not llm_loop:
             await sentence_q.put(buf.strip())
 
         # Signal consumer to exit (only if not interrupted)
         if not bargein.is_set():
             await sentence_q.put(None)
 
-        print(f"[LLM {time.monotonic() - t_llm:.1f}s] {''.join(full_response)}")
+        print(f"[LLM {time.monotonic() - t_llm:.1f}s] done ({len(full_response)} tokens)")
 
     async def consumer():
         loop = asyncio.get_event_loop()
@@ -242,11 +272,12 @@ async def _stream_response(llm, tts, user_text, shutdown):
             if sentence is None:
                 break
 
+            print(f"[TTS] {sentence}")
             await tts.speak(sentence, tail_silence=PAUSE_SILENCE_S)
             tts.drain()
 
-            # Listen for barge-in
-            rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S)
+            # Listen for barge-in (samples RMS across the full window)
+            rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S, 0.05)
             print(f"[RMS {rms:.3f}]")
             if rms >= BARGEIN_THRESHOLD:
                 print("[INTERRUPTED]")
@@ -264,7 +295,7 @@ async def _stream_response(llm, tts, user_text, shutdown):
         except asyncio.QueueEmpty:
             break
 
-    return bargein.is_set(), naughty_hit, full_response
+    return bargein.is_set(), naughty_hit, llm_loop, full_response
 
 
 async def watch_quit(shutdown: asyncio.Event):
@@ -441,7 +472,7 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
         llm_input = text
 
         # LLM → TTS streaming (producer-consumer with barge-in)
-        interrupted, naughty_hit, full_response = await _stream_response(
+        interrupted, naughty_hit, llm_loop, full_response = await _stream_response(
             llm, tts, llm_input, shutdown,
         )
 
@@ -451,17 +482,20 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             await tts.speak("I don't really know how to answer that.")
             tts.drain()
 
-        tts.drain()
+        if llm_loop:
+            llm.reset()
+            wiki.reset()
+            await tts.speak("Hmm, I lost my train of thought. Can you ask me again?")
+            tts.drain()
 
-        # Reset Piper to clear any accumulated ONNX state
-        tts.reset_synth()
+        tts.drain()
 
         # Resume listening
         tts.beep()
         tts.drain()
         leds.idle()
         vad.resume()
-        print()
+        print("[Listening]\n")
 
     if quit_task is not None:
         quit_task.cancel()

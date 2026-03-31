@@ -5,6 +5,7 @@ import queue
 import random
 import re
 import threading
+import time
 import wave
 
 import numpy as np
@@ -69,15 +70,51 @@ class TTSPlayer:
         return audio
 
     def _playback_worker(self):
-        """Play audio chunks sequentially. Each chunk is played and fully
-        drained before moving to the next."""
-        while True:
-            chunk = self._audio_queue.get()
-            if chunk is None:
-                break
-            sd.play(chunk, samplerate=self._playback_rate)
-            sd.wait()
-            self._audio_queue.task_done()
+        """Play audio chunks via a persistent output stream.
+
+        The stream stays open for the lifetime of the worker so there
+        is no per-chunk startup latency (which caused cut-off of the
+        first milliseconds) and no repeated open/close (which caused
+        ALSA underruns).  When idle the stream outputs silence via the
+        callback, so the buffer never starves.
+        """
+        self._play_buf: list[np.ndarray] = []  # chunks waiting to be played
+        self._play_lock = threading.Lock()
+
+        def _callback(outdata, frames, time_info, status):
+            written = 0
+            with self._play_lock:
+                while written < frames and self._play_buf:
+                    chunk = self._play_buf[0]
+                    n = min(frames - written, len(chunk))
+                    outdata[written:written + n, 0] = chunk[:n]
+                    if n < len(chunk):
+                        self._play_buf[0] = chunk[n:]
+                    else:
+                        self._play_buf.pop(0)
+                    written += n
+            # Fill remainder with silence — keeps the stream fed
+            if written < frames:
+                outdata[written:, 0] = 0.0
+
+        with sd.OutputStream(samplerate=self._playback_rate, channels=1,
+                             dtype="float32", callback=_callback,
+                             latency="high"):
+            # Let the stream fill its initial buffer with silence
+            time.sleep(0.2)
+            while True:
+                chunk = self._audio_queue.get()
+                if chunk is None:
+                    break
+                with self._play_lock:
+                    self._play_buf.append(chunk.copy())
+                # Wait for this chunk to finish playing
+                while True:
+                    with self._play_lock:
+                        if not self._play_buf:
+                            break
+                    time.sleep(0.005)
+                self._audio_queue.task_done()
 
     def _synthesize(self, text: str) -> np.ndarray:
         chunks = []
@@ -88,6 +125,14 @@ class TTSPlayer:
     # Pronunciation overrides: word → how to say it
     PRONUNCIATION = {
         "Kian": "Key-in",
+        "1920s": "nineteen twenties",
+        "1930s": "nineteen thirties",
+        "1940s": "nineteen forties",
+        "1950s": "nineteen fifties",
+        "1960s": "nineteen sixties",
+        "1970s": "nineteen seventies",
+        "1980s": "nineteen eighties",
+        "1990s": "nineteen nineties",
     }
 
     # Forbidden words → safe replacements (matched case-insensitively)
@@ -100,15 +145,21 @@ class TTSPlayer:
         re.IGNORECASE,
     )
 
+    _DIMENSIONS_RE = re.compile(r"\b(\d+)\s*x\s*(\d+)\b", re.IGNORECASE)
+    _YEAR_19XX_RE = re.compile(r"\b19(\d\d)\b")
+
     def _fix_pronunciation(self, text: str) -> str:
         text = latex_to_speech(text)
         text = text.replace("*", "")
         text = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf\u2300-\u23ff\ufe0f]', '', text)
+        text = self._DIMENSIONS_RE.sub(r"\1 by \2", text)
         text = self._WORD_FILTER_RE.sub(
             lambda m: self.WORD_FILTER[m.group(0).lower()], text
         )
         for word, replacement in self.PRONUNCIATION.items():
             text = text.replace(word, replacement)
+        # "1985" → "nineteen 85" (Piper handles "85" → "eighty-five")
+        text = self._YEAR_19XX_RE.sub(r"nineteen \1", text)
         return text
 
     async def speak(self, text: str, tail_silence: float = 0.0):

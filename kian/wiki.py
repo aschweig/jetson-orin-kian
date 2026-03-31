@@ -39,8 +39,8 @@ _TOPIC_PATTERNS = [
     r"what\s+(?:is|are|was|were)\s+(?:a\s+|an\s+|the\s+)?(?P<topic>.+)",
     # "tell me about X", "tell me more about X"
     r"tell\s+me\s+(?:more\s+)?about\s+(?:the\s+)?(?P<topic>.+)",
-    # "explain X", "explain the X"
-    r"explain\s+(?:the\s+)?(?P<topic>.+)",
+    # "explain (to me) (about) X", "explain the X"
+    r"explain\s+(?:to\s+me\s+)?(?:about\s+)?(?:the\s+)?(?P<topic>.+)",
     # "how does/do X work", "how X works"
     r"how\s+(?:does|do)\s+(?P<topic>.+?)\s+work",
     r"how\s+(?P<topic>.+?)\s+works",
@@ -108,6 +108,10 @@ def extract_topic(text: str) -> str | None:
         m = pattern.search(text)
         if m:
             topic = m.group("topic").strip().rstrip(".!?,")
+            # Truncate at first sentence boundary
+            sent_end = re.search(r"[.!?]", topic)
+            if sent_end:
+                topic = topic[:sent_end.start()].strip()
             # Strip leading "the"
             topic = re.sub(r"^the\s+", "", topic, flags=re.IGNORECASE)
             if len(topic) >= 3:

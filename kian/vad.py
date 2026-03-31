@@ -5,16 +5,15 @@ from pathlib import Path
 
 import numpy as np
 import onnxruntime
-import sounddevice as sd
+
+from kian.mic import AudioInput, DEVICE_RATE, DEVICE_CHUNK_SAMPLES
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 VAD_MODEL_PATH = str(PROJECT_ROOT / "models" / "silero_vad.onnx")
 
-DEVICE_RATE = 48000  # native rate for PulseAudio default
 VAD_RATE = 16000
 DOWNSAMPLE_RATIO = DEVICE_RATE // VAD_RATE  # 3
 CHUNK_SAMPLES_16K = 512  # Silero VAD expects 512 samples at 16kHz (32ms)
-DEVICE_CHUNK_SAMPLES = CHUNK_SAMPLES_16K * DOWNSAMPLE_RATIO  # 1536 at 48kHz
 
 
 class SileroVAD:
@@ -57,10 +56,6 @@ class VADStream:
         self._paused = False
         self._loop: asyncio.AbstractEventLoop | None = None
         self._queue: asyncio.Queue[np.ndarray | None] = asyncio.Queue()
-        # Ring buffer for barge-in level checks (keeps last ~50ms at 48kHz)
-        self._level_len = int(DEVICE_RATE * 0.05)
-        self._level_buf = np.zeros(self._level_len, dtype=np.float32)
-        self._level_pos = 0
 
     def pause(self):
         """Stop processing audio (call before STT/LLM/TTS)."""
@@ -83,29 +78,12 @@ class VADStream:
         self._vad.reset()
         self._paused = False
 
-    def mic_rms(self) -> float:
-        """Return RMS of the level ring buffer (works while paused)."""
-        return float(np.sqrt(np.mean(self._level_buf ** 2)))
-
-    def _audio_callback(self, indata, frames, time, status):
-        # Always update level ring buffer (for barge-in detection even while paused)
-        mono = indata[:, 0]
-        n = len(mono)
-        pos = self._level_pos
-        end = pos + n
-        if end <= self._level_len:
-            self._level_buf[pos:end] = mono
-        else:
-            first = self._level_len - pos
-            self._level_buf[pos:] = mono[:first]
-            self._level_buf[:n - first] = mono[first:]
-        self._level_pos = end % self._level_len
-
+    def _on_audio(self, mono: np.ndarray):
+        """Callback from AudioInput — receives mono float32 at 48kHz."""
         if self._paused:
             return
-        audio = mono.copy()
         if self._loop is not None:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, audio)
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, mono.copy())
 
     async def stream_speech(self):
         """Yield complete speech segments as float32 numpy arrays at 16kHz."""
@@ -113,15 +91,11 @@ class VADStream:
         chunk_ms = (CHUNK_SAMPLES_16K / VAD_RATE) * 1000  # 32ms
         silence_chunks = int(self._silence_ms / chunk_ms)
 
-        stream = sd.InputStream(
-            samplerate=DEVICE_RATE,
-            channels=1,
-            dtype="float32",
-            blocksize=DEVICE_CHUNK_SAMPLES,
-            callback=self._audio_callback,
-        )
+        mic = AudioInput.get()
+        mic.add_callback(self._on_audio)
+        mic.start()
 
-        with stream:
+        try:
             speech_buf: list[np.ndarray] = []
             silent_count = 0
             in_speech = False
@@ -157,3 +131,5 @@ class VADStream:
                     silent_count = 0
                     in_speech = False
                     self._vad.reset()
+        finally:
+            mic.remove_callback(self._on_audio)
