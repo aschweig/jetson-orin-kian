@@ -5,7 +5,7 @@ from functools import partial
 
 from faster_whisper import WhisperModel
 
-MODEL_SIZE = "small.en"  # tiny=~75MB, base=~150MB, small=~500MB
+MODEL_SIZE = "base.en"  # tiny=~75MB, base=~150MB, small=~500MB
 
 
 class STT:
