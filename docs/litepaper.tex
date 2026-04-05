@@ -42,8 +42,8 @@ Kian is structured as an asynchronous pipeline of five stages, all running on-de
 \begin{enumerate}[nosep]
   \item \textbf{Voice Activity Detection (VAD).} Silero VAD (ONNX, ${\sim}2$\,MB) monitors the microphone stream at 48\,kHz, downsampled to 16\,kHz for inference. Speech segments are extracted with a 1.2\,s silence threshold. A 30-second maximum prevents unbounded memory growth from sustained noise.
   \item \textbf{Speech-to-Text (STT).} Faster-whisper with the \texttt{small.en} model transcribes detected speech segments using int8 quantization.
-  \item \textbf{Language Model (LLM).} Qwen3.5-2B, quantized to Q4\_K\_M (4-bit), runs via llama.cpp with flash attention and full GPU offload. The 2048-token context window is managed by dropping oldest conversation turns when history exceeds 1500 tokens.
-  \item \textbf{Content Filtering.} A streaming n-gram detector checks each token as it is generated. On match, generation halts immediately and the conversation context is reset. A secondary word filter in the TTS stage provides defense in depth.
+  \item \textbf{Language Model (LLM).} Qwen3-4B, quantized to Q4\_K\_M (4-bit), runs via Ollama with full GPU offload. The 2048-token context window is managed by dropping oldest conversation turns when history exceeds 1500 tokens. A smaller Qwen3.5-2B model via llama.cpp is available as a lower-latency alternative.
+  \item \textbf{Content Filtering.} A streaming n-gram detector checks each token as it is generated. On match, generation halts immediately and the conversation context is reset.
   \item \textbf{Text-to-Speech (TTS).} Piper TTS synthesizes speech from text fragments, streamed to a persistent ALSA output to avoid underruns. A LaTeX-to-speech post-processor converts mathematical notation before synthesis.
 \end{enumerate}
 
@@ -67,12 +67,12 @@ Kian targets the NVIDIA Jetson Orin Nano (8\,GB unified memory). The choice is d
 Component & Memory \\
 \midrule
 OS / system & $\sim$1.5\,GB \\
-LLM (Qwen3.5-2B Q4\_K\_M) & $\sim$1.5\,GB \\
+Ollama + LLM (Qwen3-4B Q4\_K\_M) & $\sim$3.4\,GB \\
 STT (Whisper small.en) & $\sim$0.5\,GB \\
 VAD (Silero) + TTS (Piper) & $\sim$0.2\,GB \\
-KV cache + buffers & $\sim$1--2\,GB \\
+KV cache (2K context) & $\sim$0.3\,GB \\
 \midrule
-Headroom & $\sim$2--3\,GB \\
+Headroom & $\sim$1.5--2\,GB \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -128,7 +128,7 @@ $$t_{\text{turn}} = t_{\text{silence}} + t_{\text{STT}} + t_{\text{TTFT}} + t_{\
 
 \noindent where $t_{\text{silence}}$ is the VAD silence detection window (1.2\,s), $t_{\text{STT}}$ is transcription time, $t_{\text{TTFT}}$ is the LLM's time to first token, and $t_{\text{TTS,first}}$ is the time to synthesize and begin playing the first sentence fragment.
 
-Crucially, \emph{tokens per second} is not the bottleneck. Even at moderate generation rates, text accumulates faster than it can be spoken. The streaming architecture exploits this: TTS begins on the first clause boundary (minimum 25 characters) while the LLM continues generating. The child hears a continuous response with natural pauses at sentence and clause boundaries (500\,ms and 200\,ms respectively).
+Crucially, \emph{tokens per second} is not the bottleneck. Even at moderate generation rates, text accumulates faster than it can be spoken. The streaming architecture exploits this: TTS begins on the first sentence boundary (minimum 25 characters) while the LLM continues generating.
 
 The Jetson Orin's value proposition is minimizing $t_{\text{TTFT}}$: its GPU and high memory bandwidth accelerate the prefill phase of transformer inference, which is the compute-intensive step that determines when the first token appears.
 
@@ -164,7 +164,7 @@ Eight prompts progress from a simple greeting through factual questions to a cre
 Each model was assessed on three qualitative dimensions:
 
 \begin{itemize}[nosep]
-  \item \textbf{Succinctness}: Are short-answer responses concise? (Evaluated on 6 factual prompts.)
+  \item \textbf{Succinctness}: Are short-answer responses concise? (Evaluated on 6 of the prompts.)
   \item \textbf{Complexity}: Is the storytelling response sufficiently detailed? (Evaluated on 1 creative prompt.)
   \item \textbf{Accuracy}: Are responses factually correct and free of hallucinations? (Evaluated across all 8 prompts.)
 \end{itemize}
