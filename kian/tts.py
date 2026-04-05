@@ -189,6 +189,8 @@ class TTSPlayer:
         so the stream stays fed with no gap.
         """
         text = self._fix_pronunciation(text)
+        if not text.strip():
+            return
         loop = asyncio.get_event_loop()
         audio = await loop.run_in_executor(None, self._synthesize, text)
         if tail_silence > 0:
@@ -234,6 +236,18 @@ class TTSPlayer:
         self._voice = PiperVoice.load(str(chosen))
         llm_mod.voice = chosen.stem
         llm_mod.save_settings()
+
+    def flush(self):
+        """Immediately silence playback and discard queued audio."""
+        with self._play_lock:
+            self._play_buf.clear()
+        # Drain the queue so task_done bookkeeping stays consistent
+        while not self._audio_queue.empty():
+            try:
+                self._audio_queue.get_nowait()
+                self._audio_queue.task_done()
+            except queue.Empty:
+                break
 
     def drain(self):
         """Wait for all queued audio to finish playing."""

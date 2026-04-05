@@ -35,6 +35,7 @@ MIN_CHUNK_LEN = 25  # don't split tiny fragments
 MAX_CHUNK_LEN = 400  # force-flush buffer if no sentence boundary found
 PAUSE_SILENCE_S = 0.050   # 50ms silence to let TTS echo decay
 BARGEIN_LISTEN_S = 0.250  # mic listen window for barge-in
+BARGEIN_COOLDOWN_S = 0.80 # pause after barge-in before listening again
 SILENCE_RESET_S = 8 * 60  # reset conversation after 8 minutes of silence
 
 # --- Control phrases (matched case-insensitively, punctuation stripped) ---
@@ -298,11 +299,12 @@ async def _stream_response(llm, tts, user_text, shutdown):
             await tts.speak(sentence, tail_silence=PAUSE_SILENCE_S)
             tts.drain()
 
-            # Listen for barge-in (samples RMS across the full window)
+            # Listen for barge-in in the inter-sentence gap
             rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S, 0.05)
             print(f"[RMS {rms:.3f}]")
             if rms >= BARGEIN_THRESHOLD:
                 print("[INTERRUPTED]")
+                tts.flush()
                 bargein.set()
                 break
 
@@ -410,6 +412,14 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             continue
         print(f"[STT {stt_s:.1f}s] {text}")
 
+        # Check if user is still speaking (barge-in at end of STT)
+        rms = await asyncio.get_event_loop().run_in_executor(None, mic_rms, BARGEIN_LISTEN_S, 0.05)
+        if rms >= BARGEIN_THRESHOLD:
+            print(f"[STT barge-in RMS {rms:.3f} — still speaking, re-listening]")
+            leds.idle()
+            vad.resume()
+            continue
+
         # Check for naughty input — deflect without adding to context
         input_naughty = NaughtyDetector()
         if any(input_naughty.check(w) for w in text.split()):
@@ -511,6 +521,10 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             tts.drain()
 
         tts.drain()
+
+        # After barge-in, wait for mic to settle before listening again
+        if interrupted:
+            await asyncio.sleep(BARGEIN_COOLDOWN_S)
 
         # Resume listening
         tts.beep()
