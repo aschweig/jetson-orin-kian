@@ -10,8 +10,8 @@ Two LLM backends:
 
 | Backend | Model | How it runs |
 |---------|-------|-------------|
-| `llamacpp` (default) | Qwen3.5-2B (GGUF) | In-process via llama-cpp-python |
-| `ollama` | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
+| `ollama` (default) | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
+| `llamacpp` | Qwen3.5-2B (GGUF) | In-process via llama-cpp-python |
 
 All components run locally. No cloud APIs required.
 
@@ -22,7 +22,7 @@ All components run locally. No cloud APIs required.
 - [uv](https://docs.astral.sh/uv/) package manager
 - A microphone and speakers/headphones
 - ~4GB disk for models
-- [Ollama](https://ollama.com/) (only for `--backend ollama`)
+- [Ollama](https://ollama.com/) (required for the default backend)
 
 ## System Dependencies
 
@@ -104,15 +104,13 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    uv sync
    ```
 
-3. **Rebuild llama-cpp-python with CUDA** (only for `--backend llamacpp`, the default):
+3. **Install Ollama** (default LLM backend):
 
    ```bash
-   CMAKE_ARGS="-DGGML_CUDA=on" uv pip install --force-reinstall --no-binary llama-cpp-python --no-cache llama-cpp-python
+   curl -fsSL https://ollama.com/install.sh | sh
    ```
 
-   This compiles llama.cpp from source with CUDA support. Takes several minutes.
-   Without this step, the LLM runs on CPU only and will be very slow.
-   Skip this if you only plan to use the Ollama backend.
+   Ollama runs as a systemd service and starts automatically on boot.
 
 4. **Download models:**
 
@@ -123,53 +121,37 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    This downloads:
    - **Silero VAD** (~2.3MB) into `models/`
    - **Piper TTS** voice (`en_US-lessac-medium`, ~75MB) into `models/`
-   - **Qwen3.5-2B** GGUF (`Q4_K_M`, ~1.6GB) into `models/`
+   - **Qwen3.5-2B** GGUF (`Q4_K_M`, ~1.6GB) into `models/` (llamacpp fallback)
+   - **Qwen3-4B** via Ollama (`Q4_K_M`, ~2.7GB)
+   - **Qwen2.5-0.5B** GGUF (`Q2_K`, ~415MB) into `models/` (safety classifier)
    - **Whisper** (`tiny`, ~75MB) is downloaded automatically on first run by faster-whisper
 
-5. **Run:**
+5. **Rebuild llama-cpp-python with CUDA** (only needed for `--backend llamacpp`):
+
+   ```bash
+   CMAKE_ARGS="-DGGML_CUDA=on" uv pip install --force-reinstall --no-binary llama-cpp-python --no-cache llama-cpp-python
+   ```
+
+   This compiles llama.cpp from source with CUDA support. Takes several minutes.
+   Skip this if you only plan to use the default Ollama backend.
+
+6. **Run:**
 
    ```bash
    uv run kian
    ```
 
-## Ollama Backend (larger model)
-
-The Ollama backend runs Qwen3-4B via Ollama's server, which provides efficient GPU inference on Jetson.
-
-1. **Install Ollama:**
-
-   ```bash
-   curl -fsSL https://ollama.com/install.sh | sh
-   ```
-
-2. **Pull the model** (~2.7GB):
-
-   ```bash
-   ollama pull qwen3:4b-q4_K_M
-   ```
-
-3. **Run with Ollama:**
-
-   ```bash
-   uv run kian --backend ollama
-   ```
-
-   Ollama runs as a systemd service and starts automatically on boot. The model loads into GPU memory on first request (~4-5s cold start), then stays loaded.
-
 ## Usage
 
 ```bash
-# Default: Qwen3.5-2B via llama.cpp
+# Default: Qwen3-4B via Ollama
 uv run kian
 
-# Qwen3-4B via Ollama
-uv run kian --backend ollama
+# Qwen3.5-2B via llama.cpp (lower latency, smaller model)
+uv run kian --backend llamacpp
 
 # Custom model with llama.cpp
-uv run kian --model models/some-other-model.gguf
-
-# Custom model with Ollama
-uv run kian --backend ollama --model "qwen3:8b"
+uv run kian --backend llamacpp --model models/some-other-model.gguf
 ```
 
 Press Q + Enter to quit.
@@ -186,6 +168,7 @@ kian/
 │   ├── llm.py          # backend selection + shared interface
 │   ├── llm_llamacpp.py # llama.cpp backend (Qwen3.5-2B)
 │   ├── llm_ollama.py   # Ollama backend (Qwen3-4B)
+│   ├── safety.py       # LLM-based content safety classifier
 │   └── tts.py          # text-to-speech + playback thread (Piper)
 ├── models/             # model files (not checked in)
 ├── scripts/
@@ -248,28 +231,29 @@ Note: PulseAudio may not auto-start in headless mode. If audio breaks, start it 
 pulseaudio --start
 ```
 
+## Benchmarks (Jetson Orin Nano, 8GB)
+
+Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization and 2048-token context.
+
+| Engine | Mean TTFT | p95 TTFT | tok/s | GPU% |
+|--------|-----------|----------|-------|------|
+| llamacpp: Granite 3.3 2B | 0.09s | 0.19s | 25.6 | 100% |
+| ollama: Granite 3.3 2B | 0.23s | 0.32s | 25.9 | 100% |
+| llamacpp: Qwen3.5 2B | 0.42s | 0.74s | 25.4 | 100% |
+| **ollama: Qwen3 4B** | **0.52s** | **0.62s** | **15.5** | **100%** |
+| ollama: Llama 3.2 3B | 0.53s | 0.59s | 19.2 | 100% |
+| ollama: Ministral-3 3B | 0.64s | 0.78s | 14.5 | 69% |
+
+Models that could not fully offload to GPU suffered 2-5x higher TTFT and are omitted. The default backend (Qwen3-4B via Ollama, **bold**) was selected for best accuracy and response quality. See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
+
 ## Memory Budget (~8GB)
-
-**llamacpp backend (Qwen3.5-2B):**
-
-| Component | RAM |
-|-----------|-----|
-| OS/system | ~1.5 GB |
-| Qwen3.5-2B Q4_K_M | ~1.5 GB |
-| Whisper tiny | ~0.1 GB |
-| Piper TTS | ~0.1 GB |
-| KV cache + buffers | ~1-2 GB |
-| **Headroom** | **~3-4 GB** |
-
-**Ollama backend (Qwen3-4B):**
 
 | Component | RAM |
 |-----------|-----|
 | OS/system | ~1.5 GB |
 | Ollama + Qwen3-4B Q4_K_M | ~3.4 GB |
+| Safety classifier (CPU) | ~0.4 GB |
 | Whisper tiny | ~0.1 GB |
 | Piper TTS | ~0.1 GB |
 | KV cache (2K context) | ~0.3 GB |
-| **Headroom** | **~2 GB** |
-
-Note: Both backends share the same 8GB between CPU and GPU. Do not run both simultaneously.
+| **Headroom** | **~1.5 GB** |

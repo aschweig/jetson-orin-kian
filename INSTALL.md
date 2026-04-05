@@ -13,7 +13,7 @@ Kian uses two independent systemd services:
 - Models downloaded (`./scripts/download-models.sh`)
 - Wiki database built (`uv run python scripts/build-wiki-db.py`) — downloads Simple Wikipedia (~350 MB) and builds an FTS5 index (~170 MB)
 - USB audio device(s) connected
-- [Ollama](https://ollama.com/) installed with model pulled (only for `--backend ollama`):
+- [Ollama](https://ollama.com/) installed with model pulled (required for the default backend):
   ```bash
   curl -fsSL https://ollama.com/install.sh | sh
   ollama pull qwen3:4b-q4_K_M
@@ -66,7 +66,7 @@ Edit `kian.env` in the repo root to configure audio devices and Kian arguments:
 AUDIO_SPEAKER=eneric_USB2.0
 AUDIO_MIC=AB13X
 
-# Extra args for kian (e.g. --backend ollama)
+# Extra args for kian (e.g. --backend llamacpp)
 KIAN_ARGS=
 ```
 

@@ -32,25 +32,22 @@ else
     echo "Qwen3.5-2B GGUF already downloaded, skipping."
 fi
 
-# Qwen3-4B GGUF for llama.cpp / benchmark (~2.5GB)
-if [ ! -f Qwen3-4B-Q4_K_M.gguf ]; then
-    echo "Downloading Qwen3-4B Q4_K_M (~2.5GB)..."
-    wget -q --show-progress https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+# Qwen3-4B via Ollama (default backend, ~2.7GB)
+if command -v ollama &>/dev/null; then
+    echo "Pulling Qwen3-4B via Ollama..."
+    ollama pull qwen3:4b-q4_K_M
 else
-    echo "Qwen3-4B GGUF already downloaded, skipping."
+    echo "Ollama not installed, skipping Qwen3-4B pull."
+    echo "  Install with: curl -fsSL https://ollama.com/install.sh | sh"
 fi
 
-# Granite 3.3 2B GGUF for llama.cpp / benchmark (~1.6GB)
-if [ ! -f granite-3.3-2b-instruct-Q4_K_M.gguf ]; then
-    echo "Downloading Granite 3.3 2B Q4_K_M (~1.6GB)..."
-    wget -q --show-progress https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/main/granite-3.3-2b-instruct-Q4_K_M.gguf
+# Qwen2.5-0.5B Instruct GGUF for safety classifier (~415MB, CPU-only)
+if [ ! -f qwen2.5-0.5b-instruct-q2_k.gguf ]; then
+    echo "Downloading Qwen2.5-0.5B Instruct Q2_K (~415MB)..."
+    wget -q --show-progress https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q2_k.gguf
 else
-    echo "Granite 3.3 2B GGUF already downloaded, skipping."
+    echo "Qwen2.5-0.5B Instruct GGUF already downloaded, skipping."
 fi
-
-# Qwen3 4B via Ollama -- install Ollama and pull the model separately:
-#   curl -fsSL https://ollama.com/install.sh | sh
-#   ollama pull qwen3:4b-q4_K_M
 
 # Whisper (auto-downloaded on first run by faster-whisper)
 echo ""

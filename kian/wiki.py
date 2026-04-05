@@ -112,8 +112,8 @@ def extract_topic(text: str) -> str | None:
             sent_end = re.search(r"[.!?]", topic)
             if sent_end:
                 topic = topic[:sent_end.start()].strip()
-            # Strip leading "the"
-            topic = re.sub(r"^the\s+", "", topic, flags=re.IGNORECASE)
+            # Strip leading articles
+            topic = re.sub(r"^(?:the|a|an)\s+", "", topic, flags=re.IGNORECASE)
             if len(topic) >= 3:
                 return topic
     return None

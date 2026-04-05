@@ -20,7 +20,7 @@
 \begin{abstract}
 Kian is an open-source, fully offline voice assistant designed for children's education.
 Running entirely on an NVIDIA Jetson Orin, it requires no internet connection and no parent-managed accounts---children interact through speech alone.
-A multi-stage content filtering pipeline reduces exposure to harmful material, while a novel LaTeX-to-speech post-processing system makes audio-based mathematical question answering feasible.
+A multi-stage content filtering pipeline reduces exposure to harmful material, while a heuristic LaTeX-to-speech post-processing system makes audio-based mathematical question answering feasible.
 This paper describes the architecture, design rationale, and key tradeoffs of the system.
 \end{abstract}
 
@@ -98,10 +98,10 @@ Children's content filtering requires multiple layers, since no single mechanism
 \begin{enumerate}[nosep]
   \item \textbf{System prompt.} The LLM is instructed to behave as an educational cartoon animal speaking to a child at a specific grade level. This biases generation toward age-appropriate content.
   \item \textbf{Streaming token filter.} A sliding-window n-gram matcher checks every token against a curated list of 100+ prohibited words and phrases spanning profanity, slurs, sexual content, violence, drug references, and adult/gambling websites. Detection is immediate---the response is discarded, the context is reset, and a neutral deflection is spoken.
-  \item \textbf{TTS word filter.} A final pass before speech synthesis replaces any remaining problematic words with safe alternatives (e.g., ``donkey'' for ``ass'').
+  \item \textbf{LLM safety classifier.} Each complete sentence is classified by a separate small language model (Qwen2.5-0.5B, Q2\_K quantization, running on CPU) before it is sent to the TTS pipeline. The classifier is prompted to flag profanity, insults, violence, weapons, sexual content, self-harm, drugs, and adult topics, responding with a single SAFE or UNSAFE token. Unsafe sentences halt generation and reset the conversation context. Running on CPU avoids contention with the primary LLM on the GPU; inference takes approximately 90\,ms per sentence. A throttle mechanism ensures safety checks are interleaved with TTS playback rather than executed in bursts.
 \end{enumerate}
 
-\noindent The filter list is maintained as a plain text file, making it straightforward for educators and parents to review and extend.
+\noindent The n-gram filter list is maintained as a plain text file, making it straightforward for educators and parents to review and extend. The LLM classifier provides contextual understanding that rule-based filters cannot---for example, detecting instructions for harmful activities composed entirely of individually benign words.
 
 \section{Mathematical Post-Processing}
 

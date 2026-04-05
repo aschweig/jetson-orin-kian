@@ -17,6 +17,7 @@ from kian.tts import TTSPlayer, VOLUME_WHISPER, VOLUME_INSIDE, VOLUME_LOUD, VOLU
 from kian import leds
 from kian.mic import mic_rms
 from kian.wiki import WikiLookup
+from kian import safety
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _VALID_NAMES = {
@@ -203,20 +204,39 @@ async def _stream_response(llm, tts, user_text, shutdown):
     tail silence, then listens on the mic for barge-in.  Sets the flag and
     exits if the user speaks.
 
-    Returns (interrupted, naughty_hit, full_response).
+    Returns (interrupted, naughty_hit, llm_loop, full_response).
     """
     bargein = asyncio.Event()            # atomic flag
     sentence_q: asyncio.Queue[str | None] = asyncio.Queue()
     naughty_hit = False
+    safety_hit = False
     llm_loop = False
     full_response: list[str] = []
 
     async def producer():
-        nonlocal naughty_hit, llm_loop
+        nonlocal naughty_hit, safety_hit, llm_loop
         naughty = NaughtyDetector()
+        loop = asyncio.get_event_loop()
         buf = ""
         first_token = True
         t_llm = time.monotonic()
+
+        async def _check_and_enqueue(text: str):
+            """Safety-check a sentence, then enqueue for TTS or abort."""
+            nonlocal safety_hit
+            # Throttle: wait until consumer needs more before running CPU-heavy check
+            while sentence_q.qsize() >= 2 and not bargein.is_set():
+                await asyncio.sleep(0.1)
+            if bargein.is_set():
+                return True  # abort silently
+            safe = await loop.run_in_executor(None, safety.classify, text)
+            print(f"[SAFETY] {text}  [{'SAFE' if safe else 'UNSAFE'}]")
+            if not safe:
+                print("[SAFETY] blocked")
+                safety_hit = True
+                return False
+            await sentence_q.put(text)
+            return True
 
         async for token in llm.chat_stream(user_text):
             if shutdown.is_set() or bargein.is_set():
@@ -248,16 +268,18 @@ async def _stream_response(llm, tts, user_text, shutdown):
                 fragment = buf[: m.end()].strip()
                 buf = buf[m.end() :]
                 if fragment:
-                    await sentence_q.put(fragment)
+                    if not await _check_and_enqueue(fragment):
+                        break
             elif len(buf) >= MAX_CHUNK_LEN:
                 # No sentence boundary found — force-flush to avoid runaway buffer
                 print("[LLM] buffer overflow, force-flushing")
-                await sentence_q.put(buf.strip())
+                if not await _check_and_enqueue(buf.strip()):
+                    break
                 buf = ""
 
         # Flush remaining text
-        if buf.strip() and not bargein.is_set() and not shutdown.is_set() and not naughty_hit and not llm_loop:
-            await sentence_q.put(buf.strip())
+        if buf.strip() and not bargein.is_set() and not shutdown.is_set() and not naughty_hit and not safety_hit and not llm_loop:
+            await _check_and_enqueue(buf.strip())
 
         # Signal consumer to exit (only if not interrupted)
         if not bargein.is_set():
@@ -295,7 +317,7 @@ async def _stream_response(llm, tts, user_text, shutdown):
         except asyncio.QueueEmpty:
             break
 
-    return bargein.is_set(), naughty_hit, llm_loop, full_response
+    return bargein.is_set(), naughty_hit or safety_hit, llm_loop, full_response
 
 
 async def watch_quit(shutdown: asyncio.Event):
@@ -507,7 +529,7 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
 def parse_args():
     p = argparse.ArgumentParser(description="Kian voice assistant")
     p.add_argument(
-        "--backend", choices=["llamacpp", "ollama"], default="llamacpp",
+        "--backend", choices=["llamacpp", "ollama"], default="ollama",
         help="LLM backend (default: llamacpp)",
     )
     p.add_argument(
