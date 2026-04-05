@@ -32,9 +32,25 @@ else
     echo "Qwen3.5-2B GGUF already downloaded, skipping."
 fi
 
-# Qwen3 4B MLC -- auto-downloaded by the Docker container on first run.
-# To pre-pull the container image (~7GB):
-#   sudo docker pull dustynv/mlc:0.20.0-r36.4.0
+# Qwen3-4B GGUF for llama.cpp / benchmark (~2.5GB)
+if [ ! -f Qwen3-4B-Q4_K_M.gguf ]; then
+    echo "Downloading Qwen3-4B Q4_K_M (~2.5GB)..."
+    wget -q --show-progress https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+else
+    echo "Qwen3-4B GGUF already downloaded, skipping."
+fi
+
+# Granite 3.3 2B GGUF for llama.cpp / benchmark (~1.6GB)
+if [ ! -f granite-3.3-2b-instruct-Q4_K_M.gguf ]; then
+    echo "Downloading Granite 3.3 2B Q4_K_M (~1.6GB)..."
+    wget -q --show-progress https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/main/granite-3.3-2b-instruct-Q4_K_M.gguf
+else
+    echo "Granite 3.3 2B GGUF already downloaded, skipping."
+fi
+
+# Qwen3 4B via Ollama -- install Ollama and pull the model separately:
+#   curl -fsSL https://ollama.com/install.sh | sh
+#   ollama pull qwen3:4b-q4_K_M
 
 # Whisper (auto-downloaded on first run by faster-whisper)
 echo ""

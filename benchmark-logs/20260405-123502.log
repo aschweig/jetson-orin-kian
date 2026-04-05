@@ -1,0 +1,540 @@
+============================================================
+Engine: llamacpp:Qwen3.5-2B-Q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hi there! I'm Kian, but you can call me Kian. I'm a little cartoon animal who loves to teach you all the cool things about the world. Are you ready to learn something new?
+  TTFT=0.214s  tokens=43  total=2.0s  tok/s=24.0
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The fastest land animal is the cheetah! They can run up to 70 miles per hour in a straight line. But remember, they can't keep that speed forever, so they have to stop and rest after every run.
+  TTFT=0.204s  tokens=48  total=2.1s  tok/s=25.6
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: A cheetah can run about 10 times faster than a human! If you run at 10 miles per hour, a cheetah can go 100 miles in the same time. That is like running around the world in one hour!
+  TTFT=0.259s  tokens=54  total=2.4s  tok/s=25.6
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: In water, the fastest fish is the blue marlin! It can swim up to 100 miles per hour. That is way faster than a cheetah, because water is much denser and gives fish more speed. But even the blue marlin needs to rest and eat a lot to stay that fast.
+  TTFT=0.362s  tokens=65  total=2.9s  tok/s=25.6
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: Some animals are super fast because they have special muscles and hearts that pump blood to their legs or fins with extra power. They also have thin, flexible skin that lets them move through water or air without getting stuck. Plus, they have sharp teeth and strong claws to catch their food while they run!
+  TTFT=0.424s  tokens=60  total=2.8s  tok/s=25.7
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Muscles are like tiny engines inside your body. When you think about running, your legs have muscles that stretch and squeeze. When you run, those muscles contract, which makes your legs move forward. But for a cheetah, their muscles are much stronger and more flexible than yours. They can pump blood to their legs so they can run for a long time without getting tired. It's like having a supercharged battery that keeps going all day long!
+  TTFT=0.511s  tokens=92  total=4.1s  tok/s=25.5
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: Oh wow, that is a wild race! If a cheetah and a sailfish raced, the cheetah would win on land because it is built for running on dirt and grass. But the sailfish would win in the water because it is built for swimming in oceans. It would be a very exciting match if they raced in the same ocean!
+  TTFT=0.639s  tokens=72  total=3.5s  tok/s=25.6
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, a little cheetah named Kian and a cute dolphin named Dory decided to race. They started at the same time, but the cheetah was running on land while the dolphin was swimming in the ocean. The cheetah was very fast on the ground, but the dolphin was swimming super fast in the water. The dolphin kept moving forward with its fins, while the cheetah had to stop and rest. The dolphin won the race because it was built for water, and the cheetah was built for land. They both learned that every animal is good at something special!
+  TTFT=0.736s  tokens=125  total=5.7s  tok/s=25.4
+
+============================================================
+Engine: llamacpp:granite-3.3-2b-instruct-Q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hello there! I'm Kian, a friendly cartoon animal. I'm here to help answer your questions and make learning fun! What would you like to know today?
+  TTFT=0.212s  tokens=36  total=1.7s  tok/s=24.2
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The fastest land animal is actually a cheetae, little buddy. They can reach speeds up to 75 miles per hour in short bursts! Isn't that amazing?
+  TTFT=0.071s  tokens=41  total=1.6s  tok/s=26.3
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: Well, a cheetah is much faster than a human. The fastest recorded human speed is about 28 mph, but a cheetah can reach up to 75 mph. That's like a human trying to run as fast as a very fast train!
+  TTFT=0.072s  tokens=58  total=2.3s  tok/s=26.0
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: In water, the fastest fish is the sailfish! It can swim at incredible speeds of over 60 miles per hour. That's faster than most people can even run! Isn't it fascinating how different animals have adapted to move in their own unique ways?
+  TTFT=0.074s  tokens=65  total=2.6s  tok/s=25.9
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: Great question! It's all about how an animal's body is built and how it moves. Some animals, like cheetahs, have long legs and a streamlined body for speed. Others, like sailfish, have evolved to be incredibly strong and have a unique body shape for speed in water. It's nature's way of creating the best tools for each environment!
+  TTFT=0.075s  tokens=82  total=3.2s  tok/s=25.8
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Sure! Muscles are like the engine of an animal. They help in movement. When an animal wants to run fast, its muscles work hard to push its body forward. 
+
+Stronger muscles can contract faster and more powerfully, which allows for quicker movements. For example, a cheetah's muscles are specially designed for speed. They're powerful but also flexible, allowing for quick, sharp movements. 
+
+And just like a car needs a good engine, an animal needs strong, efficient muscles to move fast.
+  TTFT=0.077s  tokens=117  total=4.6s  tok/s=25.6
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That's a fun thought! A cheetah and a sailfish would definitely have a race, but it's hard to compare them directly. Cheetahs are land animals, designed for speed on land, while sailfish are aquatic, designed for speed in water.
+
+In water, the sailfish's streamlined body and powerful tail would give it an advantage, allowing it to swim much faster than a cheetah could in water. On land, a cheetah's speed and agility would be more advantageous.
+
+So, it's not really a fair race, but it's fun to imagine!
+  TTFT=0.089s  tokens=134  total=5.3s  tok/s=25.6
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, in a vast ocean, there lived a clever dolphin named Daisy. She was known for her incredible speed and agility. In a nearby desert, there was a cheetah named Charlie, famous for his land speed.
+
+One day, they decided to have a friendly race across the ocean and then back to the shore. The news spread, and animals from all over gathered to watch.
+
+Daisy, with her powerful tail and streamlined body, took the first lead in the ocean. She dove deep, then burst through the water, leaving the current in her wake.
+
+Charlie, on the other hand, ran as fast as he could on the sandy shore. He was a great runner, but he was no match for Daisy's aquatic prowess.
+
+When they reached the shore, Daisy was already there, panting but triumphant. Charlie arrived, out of breath but proud of his effort. They both agreed it was a great race, even if Charlie didn't win. They became friends, and the animals learned that speed isn't just about being the fastest in one environment, but about being adaptable and enjoying the journey.
+
+And so, they lived, sharing their unique speeds and teaching others that there's more to winning than just being the fastest.
+  TTFT=0.090s  tokens=312  total=12.6s  tok/s=25.0
+
+============================================================
+Engine: ollama:qwen3.5:2b-q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hello! I am Mr. Whiskers, a very good friend for kids like you. I love helping you learn about cool things like animals, stars, and space! What would you like to see right now?
+  TTFT=1.187s  tokens=44  total=5.8s  tok/s=9.6
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The fastest land animal is definitely the cheetah! They can run up to sixty miles per hour just to catch their prey. Have you ever been near a zoo seeing one run?
+  TTFT=0.938s  tokens=37  total=4.8s  tok/s=9.5
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: Oh WOW! That is a really fast question! A cheetah can run much faster than you, but it is also very hard for them to catch a normal person. The average human can run up to ten or fifteen miles per hour. A cheetah is about six times faster than you, but they usually just get stuck in their own footprints trying to keep up! So no matter how fast you run, the cheetah will be a lot faster than you. What other animals are you curious about?
+  TTFT=1.126s  tokens=105  total=12.2s  tok/s=9.5
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: In water, the fastest fish is the tuna! They can speed through the ocean up to ninety miles per hour. That is an unbelievable speed compared to a boat or even another person swimming. Did you know that sharks can swim for longer than humans? They can actually swim for over two days! It is so powerful, you can feel the tuna in the ocean! What do you think is the most amazing creature in the ocean?
+  TTFT=1.275s  tokens=86  total=11.0s  tok/s=8.8
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: That is a great question! Some animals are fast because they have special body parts and amazing muscles. Cheetahs have long, skinny bodies that act like wings so they can turn quickly. Tuna have lots of fast-twitch muscles to swim with all their speed. Elephants have a big tail and long legs to stop dead in their tracks. Every animal is fast in a different way depending on what they need to do. Does that make sense?
+  TTFT=1.313s  tokens=92  total=10.8s  tok/s=9.7
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Muscles work like tiny springs that can stretch and recoil to make a movement! When a pet is ready to run, they pump blood into their muscles so the muscles can get strong. The muscles have special little cells called muscle fibers that contract very quickly. These fibers pull on the bones with great force, like pulling a rubber band that gets tighter every time it moves. The faster these tiny cells work, the quicker the whole body moves. Imagine a machine with a giant engine running at full speed, and those are those little muscles!
+  TTFT=1.537s  tokens=107  total=12.5s  tok/s=9.8
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: Wow, this is a super exciting race! A cheetah has a really long, skinny body with a huge tail and very strong paws to stop dead in their tracks on land. The sailfish has a super fast body with lots of gills so it can breathe underwater while it swims at ninety miles per hour.
+
+This is a hard race because the cheetah can only run fast on dry land, while the sailfish can swim incredibly fast in the ocean. The cheetah will probably win if the sun is shining and the ground is dry because the sailfish needs to dive underwater for a long time to keep moving fast. If the wind is blowing and there is no sun, the cheetah might get tired and the sailfish could be the real star in this race! What do you think?
+  TTFT=0.999s  tokens=165  total=19.7s  tok/s=8.8
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Here is a story about a race between a cheetah and a dolphin.
+
+One sunny afternoon, a very hungry cheetah named Milo spotted a swimming dolphin named Splash in a shallow river. Milo wanted to be the fastest animal in the world! He started sprinting forward, his paws pounding the dirt, but Splash was already in the water, diving beneath the surface to catch a fish.
+
+Splash used a flip trick, launching himself into the air and then shooting down toward the riverbank. He landed right in front of Milo. Milo tried to jump over, but Splash was too close. He dove into the water again just as Splash was about to make a huge leap again.
+
+Splash swam straight into Milo's path, but the water blocked his legs. Splash couldn't turn his body to the side because he was trying to swim fast in front of Milo. Milo's long tail slipped, and his big ears got stuck on the sand. He couldn't move again. Splash kept swimming forward, getting higher and higher, until he just floated out of reach. Milo realized that even though Splash was faster in the water, Milo was stronger on the land. Milo just stood there, watching Splash swim away. Milo knew he would have to wait for his next big race to be a land race after all!
+  TTFT=1.288s  tokens=264  total=30.0s  tok/s=9.2
+
+============================================================
+Engine: ollama:qwen3:4b-q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hi there! I'm Kian, a friendly cartoon animal who loves to learn and teach. What's your name?
+  TTFT=0.613s  tokens=24  total=2.2s  tok/s=14.9
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The fastest land animal is the cheetah! They can run really fast, up to 70 miles per hour! Do you know any animals that are fast?
+  TTFT=0.435s  tokens=34  total=2.6s  tok/s=15.6
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: A cheetah can run up to 70 miles per hour! That's super fast. To compare, the average human can run about 12-15 miles per hour. So a cheetah is way faster than a human! Would you like to know about other fast animals?
+  TTFT=0.461s  tokens=61  total=4.3s  tok/s=15.7
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: The fastest fish is the sailfish! They can swim really fast, up to 68 miles per hour! That's even faster than a cheetah! Wow, isn't that cool? Do you want to know about other fast animals too?
+  TTFT=0.468s  tokens=51  total=3.8s  tok/s=15.4
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: Oh, that's a great question! Animals have different bodies and skills. Some animals are built for speed, like cheetahs and sailfish. Their muscles, legs, and even their tails help them move fast. Other animals might be faster in other ways, like climbing or swimming. It's all about how they're made and what they need to survive!
+  TTFT=0.524s  tokens=74  total=5.3s  tok/s=15.7
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Sure! Muscles are like little engines inside an animal's body. When an animal wants to move fast, its muscles contract quickly. This means the muscles shorten and pull on bones, making the animal move. Animals that are fast have muscles that can contract really fast and really hard. It's like a sprinter's muscles — they have to work hard and fast to run quickly!
+  TTFT=0.494s  tokens=77  total=5.4s  tok/s=15.6
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That would be super fun! If a cheetah and a sailfish had a race, the sailfish would probably win because it can swim so fast. But wait, the cheetah is on land, so maybe they'd have to race on the beach. The sailfish would zoom through the water, and the cheetah would sprint across the sand. It would be a really exciting race! Which animal do you think would win?
+  TTFT=0.542s  tokens=90  total=6.3s  tok/s=15.5
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, a cheetah and a dolphin decided to have a race. The cheetah was on land, and the dolphin was in the ocean. They agreed to race across the beach. The cheetah started running fast, her muscles working hard. The dolphin swam through the water, her tail moving quickly. The cheetah was really fast on land, but the dolphin was so fast in water that she won the race. The cheetah was sad, but she smiled and said, "Maybe next time we can race on land!" And they both laughed and played together. The end.
+  TTFT=0.617s  tokens=126  total=8.8s  tok/s=15.5
+
+============================================================
+Engine: ollama:qwen3.5:4b-q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hello there! I'm Kian, your friend for learning! But wait, can we have a little secret about me? You wouldn't know what I look like if I told you, okay? That's my special twist. But I'm just as happy to teach you about numbers, stories, and the world around us. So what would you like to explore today? Maybe we can count the stars in the sky or read a new story together?
+  TTFT=1.404s  tokens=91  total=9.5s  tok/s=11.3
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The fastest land animal is the cheetah! Did you know they can sprint up to seventy miles an hour? That's almost as fast as a race car! They have these special spots on their heads that help them spot things from far away, and their legs are built like springs to give them that extra push. Would you like to try imagining you are a cheetah chasing a butterfly through the forest?
+  TTFT=1.331s  tokens=83  total=8.6s  tok/s=11.4
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: It can run three to four times faster than most humans! If a person could run twenty miles in an hour, the cheetah could almost cover three times that distance. But guess what? Even though the cheetah is super fast, humans are very good at running for a long time because our legs are built like engines that never stop!
+  TTFT=1.692s  tokens=70  total=7.9s  tok/s=11.3
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: The fastest fish is the sailfish! It can zip through the water at about thirty-five miles per hour. If we imagine a race where a sailfish tries to beat a cheetah, the fish might win because its speed is really quick underwater, though land animals usually feel like they go faster on their four legs. But the sailfish has these huge triangular fins that act like a sail to catch the wind and push it forward! Do you think fish swim like they use their fins as oars or sails?
+  TTFT=1.977s  tokens=104  total=11.1s  tok/s=11.4
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: That is a wonderful question! Think about how your body is built compared to a cheetah's. Animals that are fast often have long legs to take giant steps, big hearts that pump a lot of oxygen to their muscles, and light bones that make them feel like they are floating. A cheetah has all those things, but a sloth has short legs and very strong muscles that make it move slowly so it can rest for hours at a time. It is like how a sports car is fast because of its engine, but a bicycle is fast because the rider pedaled really hard! So, it depends on what kind of job the animal needs to do and how its body was made for it.
+  TTFT=2.207s  tokens=143  total=14.7s  tok/s=11.4
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Imagine your muscles are like little rubber bands that never let go! When an animal needs to run fast, its muscles get signals from its brain to tighten up really hard. This squeezing action pulls its bones along, just like when you pull a string on a toy car. The faster the muscles can squeeze and squeeze over and over, the faster the animal moves. It is also like how a sprinter bends their knees and stretches before jumping to store energy, and then releases it all at once to fly through the air! Animals with stronger muscles can pull their bones faster, which makes them speed ahead.
+  TTFT=1.205s  tokens=120  total=11.7s  tok/s=11.4
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That would be an amazing race with a very tricky rule! Since the cheetah runs on land and the sailfish swims in water, they can't really race side by side because the ground and the water have different speeds. But if we imagine a magic flat floor underwater that lets the cheetah swim or a big pool on a hill that lets the sailfish climb, we could see who wins. Usually, the cheetah would win because thirty-five miles per hour is a lot of speed, but the water is a slippery place where it might be hard for the cheetah to get its grip. The sailfish, on the other hand, knows how to use the water to its advantage with its big fins. It would be like watching a car race where one car is driven on ice and the other is driven on regular pavement! Would you like to guess who would cross the finish line first if we made a fair track?
+  TTFT=1.625s  tokens=190  total=18.3s  tok/s=11.4
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, a little cheetah named Zoom was very proud of her speed. She loved chasing butterflies and could not wait for her big day when she would race against a dolphin named Splash. Splash was known for being the fastest swimmer in the ocean. The animals gathered in the middle of a magical pond where the water looked like glass and the bottom was dry like sand. Zoom hopped onto the sand, stretching her long legs with a happy hop, while Splash jumped out of the water and puffed up his big blowholes.
+
+The race was about to start, but then the ground began to shake and rattle under Zoom's feet, and the water began to splash up into the air. Zoom looked down and saw that the whole bottom of the pond had turned into a sticky, slippery slide. It was impossible to run on that kind of ground. Zoom hopped a few times but just slipped and slid right back to the start line. She tried again and again, but she could not get her feet to grab the wet mud.
+
+Just then, a giant wave rolled in from the side of the pond and turned the entire surface into a smooth, fast river again. Splash used his big flippers like paddles and zoomed through the water. But wait! The water was now moving very fast on its own, and Splash could not keep up. Zoom, who was still stuck on the slippery sand, could only watch Splash zoom by. But then Zoom got a new idea. She saw some smooth rocks and decided to roll them across the mud to make a new path. She rolled her big paws like giant balls and raced across the new tracks. She was very clever because she did not try to run on the bad ground, but made a new one instead.
+
+Soon they were back at the starting line, and the animals cheered again. Splash dove deep into the water and began to swim, but he was tired because the water had been so fast and rough. Zoom, however, was ready. She waited for the water to calm down and then she ran on the smooth, dry sand. She won the race not because she was faster than Splash, but because she found a way to work with the strange ground. Splash swam back to the shore, panting, while Zoom sat proudly on her victory, knowing that being smart was as important as being fast. They did not need to race all the time because they were both very strong in their own ways.
+  TTFT=2.275s  tokens=501  total=46.5s  tok/s=11.3
+
+============================================================
+Engine: ollama:llama3.2:3b-instruct-q4_K_M
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: My name is Kian, nice to meet you! I'm a bit of a curious guy and love helping people learn new things. What do you like to learn about?
+  TTFT=0.584s  tokens=35  total=2.5s  tok/s=18.6
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The cheetah is the fastest land animal, can run up to 70 miles per hour that's really fast! They're super agile and have amazing speed for such a big body. Do you think you could catch one if it was running away from you?
+  TTFT=0.467s  tokens=53  total=3.2s  tok/s=19.5
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: Well, a cheetah might be able to run 70 miles per hour, but a good runner on two feet like you or me is usually around 8-10 miles per hour. So the cheetah could easily outrun almost anyone!
+  TTFT=0.538s  tokens=51  total=3.2s  tok/s=19.4
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: The sailfish can swim really fast, up to 68 miles per hour in the ocean. That's even faster than a cheetah on land! Some scientists think that's because it has a big bill that helps cut through the water and make it go even quicker.
+  TTFT=0.499s  tokens=55  total=3.4s  tok/s=19.2
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: You know how some cars are super fast because they have powerful engines? Well, animals have special parts too that help them run or swim really quickly. Like, cheetahs have super strong legs and muscles to make their powerful strides. And sailfish have a streamlined body that helps slice through the water. It's like they're built for speed!
+  TTFT=0.506s  tokens=71  total=4.2s  tok/s=19.3
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Muscles are like special helpers inside our bodies that make us move. When an animal wants to run or swim, its muscles contract, which is like a big squeeze. This makes the bones move and helps the animal go faster. It's kind of like when you squeeze a stress ball really hard – it gets smaller because it's all bunched up tight! Muscles do that for us too, but instead they help us run or jump around.
+  TTFT=0.531s  tokens=90  total=5.2s  tok/s=19.1
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That's a funny idea! A cheetah is way faster on land than a human, so it could probably win that part of the race. But then you'd have to consider where the race was – like in the ocean or on land? If they were both in the water, I think the sailfish would be really hard to beat because it's so fast when swimming! It's like choosing between two superstars at a contest – neither one could be guaranteed the win!
+  TTFT=0.493s  tokens=97  total=5.5s  tok/s=19.3
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: One day, in a special ocean stadium, a cheetah named Charlie decided to challenge a dolphin named Daisy to a racing competition. The starting gun went off, and both competitors took off like crazy! At first, it was hard to tell who was winning – the cheetah's legs were moving so fast on land, but the dolphin could swim circles around the ocean with ease.
+
+But then Charlie remembered that he wasn't on land anymore, and Daisy was swimming away. The dolphin used her powerful tail to zoom through the water at an incredible speed! Meanwhile, Charlie struggled a bit more as he tried to get traction in the sand.
+
+In the end, it was clear: the dolphin won the race with a huge splash of victory! Charlie shook Daisy's fin and said, "You're an amazing swimmer, I have to admit!" And they both became fast friends.
+  TTFT=0.547s  tokens=177  total=9.7s  tok/s=19.2
+
+============================================================
+Engine: ollama:ministral-3:3b
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Oh, hey there! I’m just a friendly little helper here to chat with you. You know what’s cool? I can make learning fun—like a super fun story with a twist! Want to guess what I *really* am? I’ll tell you a secret later, okay? First, tell me—what’s something you’re super curious about today?
+  TTFT=0.709s  tokens=74  total=6.0s  tok/s=14.0
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: Oh wow, that’s a great question! The fastest land animal is the cheetah—it can zoom up to about 70 miles per hour! That’s like running so fast you could go from your house to the park and back in just a few minutes. Isn’t that amazing? Want to know what makes cheetahs so speedy?
+  TTFT=0.566s  tokens=72  total=5.6s  tok/s=14.3
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: A typical human can run about 30 miles per hour—so a cheetah is *way* faster! Like, if you ran that fast for a whole hour, you’d cover almost 50 miles! But here’s the fun part: cheetahs can only run that fast for about 30 seconds before they get tired. Humans can keep going for way longer. What’s even cooler is that cheetahs have special spots on their fur that help them stay cool while they’re zooming! Want to try a little race? Pretend you’re a cheetah—how fast do you think you could go?
+  TTFT=0.573s  tokens=129  total=9.6s  tok/s=14.3
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: Oh, you’re asking about water now? The fastest fish is the sailfish—it can go up to about 68 miles per hour! That’s almost as fast as a cheetah! Sailfish have these super sleek bodies and big fins to cut through the water super smooth. They’re like underwater speed demons!
+
+Want to guess what’s even faster? There’s a tiny fish called the frill shark that can go even faster—like 40 miles per hour! But don’t worry, they’re not dangerous to humans. What’s your favorite kind of fish?
+  TTFT=0.779s  tokens=118  total=9.0s  tok/s=14.3
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: Great question! It’s all about their bodies and how they’re built. Some animals have super long legs or tails to help them zoom, like cheetahs. Others have streamlined bodies to cut through the air or water, like sailfish. Their muscles are also really strong and can work for a long time without getting tired.
+
+Animals that need to be super fast might also have special tricks, like extra-long noses to sniff out food or super sharp teeth to catch prey. It’s like they’ve been designed for speed—just like how some cars are built for speeding down the highway!
+
+What do you think makes a good runner?
+  TTFT=0.637s  tokens=132  total=9.6s  tok/s=14.7
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Oh, muscles are like tiny superheroes inside your body—and animals have them too! When you want to run fast, your muscles get a little electric shock to start moving. That’s like a secret signal telling them, "Go, go, go!" The muscles squeeze and stretch super fast, pushing your bones to move your legs or tail.
+
+Animals like cheetahs have muscles that can work for a long time without getting tired because they have special stuff inside them called mitochondria—like tiny power stations! The more mitochondria a muscle has, the faster it can run. Isn’t that cool?
+
+Want to try a little muscle challenge? Pretend you’re a cheetah—how fast can you wiggle your toes?
+  TTFT=0.692s  tokens=148  total=10.9s  tok/s=14.5
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: Oh, that would be *wild*! A cheetah is built for land, so it’d zoom super fast on the ground, but then—*whoosh*—the sailfish would dive in the water and zoom past it like a rocket! The cheetah might get tired after a few seconds, but the sailfish could keep going forever in the water.
+
+Imagine the cheetah running super fast, then suddenly—*SPLASH!*—the sailfish leaps out of the water and zooms away like a torpedo! The cheetah would probably get frustrated and give up, but the sailfish would win in a heartbeat. What do you think would happen if they tried to race in the same place?
+  TTFT=0.752s  tokens=149  total=11.0s  tok/s=14.6
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, in a big, sunny savanna by the ocean, there was a cheetah named Zara who loved to race. One day, she heard a dolphin named Finn say, "I bet you can’t beat me in a race!" Zara laughed and said, "I’ll show you!"
+
+They raced to the water’s edge. Zara zoomed across the land, her paws kicking up dust. But when she reached the water, she hesitated—she wasn’t built for swimming! Finn leaped into the waves and started swimming like a blur. Zara tried to run faster, but her legs got tired.
+
+Just as Zara was about to give up, Finn did something amazing—he turned and swam back to the shore! Zara, still running, saw him and realized she could jump in too. With a big splash, Zara dove in and started swimming like she never had before. Finn helped her by pushing her forward with his tail.
+
+They raced side by side, both so fast you could barely see them. At the end, Zara won—because she’d learned to adapt! Finn cheered, and Zara grinned. "Race again?" she asked.
+
+Finn laughed. "Only if you promise to try your best in the water!"
+
+And that’s how Zara learned that sometimes, the best way to win is to use all your skills—and have fun doing it!
+  TTFT=0.860s  tokens=292  total=20.9s  tok/s=14.6
+
+============================================================
+Engine: ollama:gemma3n:e2b
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hi there! I'm Kian, and I'm a friendly helper. I love helping kids like you learn new things! What are you curious about today?
+
+
+
+
+  TTFT=1.557s  tokens=35  total=3.5s  tok/s=18.1
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: That's a great question! The fastest land animal is the cheetah. They can run really, really fast – up to 70 miles per hour! Pretty amazing, huh? 
+
+Do you know any other animals that are fast?
+
+
+
+
+  TTFT=1.191s  tokens=50  total=3.8s  tok/s=19.3
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: Okay, so a cheetah can run about 60 to 70 miles per hour! That's way faster than a human. The fastest a human can run is around 26 miles per hour. So, a cheetah is about twice as fast as a person! Pretty impressive, right?
+
+
+
+
+  TTFT=1.268s  tokens=62  total=4.6s  tok/s=18.7
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: That's a fantastic question! The fastest fish is the sailfish. They can swim at speeds of up to 50 miles per hour! That's super speedy. 
+
+Do you know any other cool fish facts?
+
+
+
+
+  TTFT=1.747s  tokens=48  total=4.3s  tok/s=18.6
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: That's a really interesting question! It's all about what animals are good at. 
+
+For example, cheetahs have strong muscles and long legs for running. Some fish have streamlined bodies and powerful fins for swimming. 
+
+Basically, animals that need to move quickly for hunting, escaping danger, or finding food develop special features that help them be fast! 
+
+What do you think? Does that make sense?
+
+
+
+
+  TTFT=1.850s  tokens=87  total=6.5s  tok/s=18.5
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Absolutely! Think of muscles like tiny powerhouses. When you move your arm, your muscles get squeezed together. That squeeze creates force, and that force is what makes your arm move! 
+
+Animals need lots of muscles to run fast. Strong muscles can contract quickly, and when they do, they push against your bones, making you move. The more muscles you have and the stronger they are, the faster you can run! 
+
+It's like having lots of little engines working together! 
+
+  TTFT=2.320s  tokens=102  total=7.6s  tok/s=19.3
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That's a super fun thought experiment! It would be a very interesting race! 
+
+A cheetah would have a huge advantage in the open, using its incredible speed to cover lots of ground. But the sailfish is built for speed in the water, with a streamlined body and powerful fins. 
+
+It's hard to say who would win! It really depends on the track – would it be a long run or a long swim? And how would the race be set up? 
+ 
+It would be a really exciting race to watch!
+
+  TTFT=3.962s  tokens=115  total=9.8s  tok/s=19.6
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: The sun beat down on the sandy beach. A cheetah named Zoom and a dolphin named Splash were ready for their race! Zoom stretched his long legs, ready to burst into a run. Splash leaped out of the ocean, a joyful splash of grey and blue.
+
+"Ready... set... go!" shouted a seagull.
+
+Zoom shot off like a furry brown streak, covering the distance quickly. Splash, however, was a master of the water. He sliced through the waves, his powerful tail propelling him forward. 
+
+Zoom was gaining, but Splash was swimming faster! He dove and surfaced, using his incredible speed to stay ahead. The crowd cheered as Splash crossed the finish line, a triumphant leap into the ocean. 
+
+Zoom, though a little disappointed, gave Splash a friendly nod. "Great race, Splash!" he called. "You're a true speedster!"
+
+Splash blew a happy bubble. "It was fun, Zoom! But the ocean is my home, and I'm built for speed in the water!" 
+
+And with a final flick of his tail, Splash disappeared beneath the waves, ready for his next adventure.
+
+
+
+
+  TTFT=4.464s  tokens=235  total=16.7s  tok/s=19.2
+
+============================================================
+Engine: ollama:granite3.3:2b
+============================================================
+
+--- Prompt 1 ---
+User: Hello, who are you?
+Assistant: Hello there! I'm Kian, your friendly cartoon animal helper. How can I assist you today?
+  TTFT=0.315s  tokens=23  total=1.3s  tok/s=24.1
+
+--- Prompt 2 ---
+User: What is the fastest land animal?
+Assistant: The cheetah is considered the fastest land animal. It can reach speeds up to 60-70 miles per hour in short bursts, although it's not as fast over long distances due to its limited endurance.
+  TTFT=0.209s  tokens=50  total=2.1s  tok/s=26.3
+
+--- Prompt 3 ---
+User: How fast can it run compared to a human?
+Assistant: Humans can't match the cheetah's speed in a sprint – it could be up to 12 miles per hour faster! But remember, humans are much better over longer distances due to our endurance.
+  TTFT=0.203s  tokens=46  total=2.0s  tok/s=26.3
+
+--- Prompt 4 ---
+User: What about in water — what is the fastest fish?
+Assistant: In water, the black marlin reigns as the fastest fish. It can swim up to 80 miles per hour, which is quicker than most cheetahs on land! However, just like with land animals, different species have different speeds depending on conditions and techniques.
+  TTFT=0.206s  tokens=63  total=2.6s  tok/s=26.2
+
+--- Prompt 5 ---
+User: Why are some animals so much faster than others?
+Assistant: Great question! Animals have evolved differently over millions of years, adapting to their environments. Fast runners often live in open spaces where speed is key for catching prey or escaping predators. Some creatures, like cheetahs and marlins, are built for speed due to their physical characteristics - lightweight bodies, long legs (for cheetah), and streamlined fins (for marlin). Others may not need such high speeds for survival in their specific habitats.
+  TTFT=0.209s  tokens=108  total=4.3s  tok/s=26.3
+
+--- Prompt 6 ---
+User: Can you explain how muscles work to make an animal fast?
+Assistant: Sure! Muscles are what allow animals to move. The size, shape, and arrangement of these muscles can greatly affect speed. 
+
+For a fast runner like a cheetah: 
+- They have powerful leg muscles that propel them forward quickly.
+- Their back legs move almost independently from the front ones, providing extra power with each stride.
+
+In a fish, like the marlin:
+- Their bodies are streamlined for reduced resistance in water.
+- Specialized muscle arrangements help them maneuver efficiently and surge forward quickly.
+
+Both use efficient energy storage (like fast-burning glycogen in some animals) to generate bursts of power, making them incredibly swift in short periods.
+  TTFT=0.214s  tokens=165  total=6.6s  tok/s=26.0
+
+--- Prompt 7 ---
+User: What would happen if a cheetah and a sailfish had a race?
+Assistant: That's an interesting thought! A cheetah is a land creature, while a sailfish lives in water. So they'd never actually race each other. But let's imagine for fun:
+
+On dry land, the cheetah would likely win a short race due to its speed and agility. The cheetah can accelerate quickly from a standstill to top speed in just 20-30 seconds.
+
+In open water, where sailfish thrive, things get more complex. Sailfish are incredibly fast swimmers reaching up to 68 mph (in short bursts). They use their pectoral fins for steering and speed, unlike a cheetah that relies on its powerful legs.
+
+So, while it's fun to think about such a match-up, different environments give these animals different advantages. It would be like comparing apples and oranges!
+  TTFT=0.230s  tokens=199  total=7.9s  tok/s=25.9
+
+--- Prompt 8 ---
+User: Tell me a short story about a race between a cheetah and a dolphin.
+Assistant: Once upon a time, in a large lake, there lived a clever cheetah named Kili and a playful dolphin named Dory. Both were known for their speed, though in different worlds - water for Dory and land for Kili.
+
+One sunny day, Kili thought it would be fun to challenge Dory to a race across the lake. Cheetahs are masters of long bursts of speed on land but aren't designed for swimming. On the other hand, dolphins glide effortlessly through water.
+
+The day of the race arrived. Kili took his place at the shore, and Dory dived into the lake to meet him. At first, it seemed like an easy win for Kili as he leaped onto the land. But soon, Dory was back in the water, surprisingly close behind.
+
+Dory used the water's currents, his powerful tail, and excellent eyesight to keep up with Kili. They raced across the vast expanse, their speeds seemingly equalizing until they reached a part of the lake where these two environments met - a shallow area. Here, Kili lost his advantage as he was unfamiliar with water and struggled to maintain momentum on land-like surfaces.
+
+Dory swam around Kili, who was panting heavily due to his discomfort in the water. When they reached the opposite shore, Dory was already there, having used the narrow channel between two islands, while Kili had to tread carefully on the slippery rocks.
+
+Dory waved a friendly fin at Kili, who conceded defeat with a smile. They became good friends, learning from each other's strengths and realizing that every environment presented unique challenges. The race wasn't about winning, but about pushing boundaries and enjoying the journey. 
+
+And so, they lived happily, sharing tales of their "race" over meals, reminding everyone that sometimes, embracing different worlds can lead to exciting friendships!
+  TTFT=0.228s  tokens=456  total=18.0s  tok/s=25.7
+

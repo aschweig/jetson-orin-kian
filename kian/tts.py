@@ -146,6 +146,14 @@ class TTSPlayer:
     )
 
     _DIMENSIONS_RE = re.compile(r"\b(\d+)\s*x\s*(\d+)\b", re.IGNORECASE)
+    # dy/dx → "dee y dee x"; d²y/dx² → "dee two y dee x squared"
+    _DERIVATIVE_RE = re.compile(r"\bd([²³⁴⁵⁶⁷⁸⁹]?)([a-zA-Z])\s*/\s*d([a-zA-Z])([²³⁴⁵⁶⁷⁸⁹]?)\b")
+    _SUPER_TO_WORD = {"²": "squared", "³": "cubed", "⁴": "to the fourth",
+                      "⁵": "to the fifth", "⁶": "to the sixth",
+                      "⁷": "to the seventh", "⁸": "to the eighth",
+                      "⁹": "to the ninth"}
+    _SUPER_TO_NUM = {"²": "two", "³": "three", "⁴": "four", "⁵": "five",
+                     "⁶": "six", "⁷": "seven", "⁸": "eight", "⁹": "nine"}
     _YEAR_19XX_RE = re.compile(r"\b19(\d\d)\b")
 
     def _fix_pronunciation(self, text: str) -> str:
@@ -153,6 +161,18 @@ class TTSPlayer:
         text = text.replace("*", "")
         text = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf\u2300-\u23ff\ufe0f]', '', text)
         text = self._DIMENSIONS_RE.sub(r"\1 by \2", text)
+        def _derivative_to_speech(m):
+            order = m.group(1)  # "" or superscript digit
+            num = m.group(2)    # y, f, v, etc.
+            den = m.group(3)    # x, t, etc.
+            den_exp = m.group(4)  # "" or superscript digit
+            if order or den_exp:
+                sup = order or den_exp
+                n = self._SUPER_TO_NUM.get(sup, sup)
+                w = self._SUPER_TO_WORD.get(sup, sup)
+                return f"dee {n} {num} dee {den} {w}"
+            return f"dee {num} dee {den}"
+        text = self._DERIVATIVE_RE.sub(_derivative_to_speech, text)
         text = self._WORD_FILTER_RE.sub(
             lambda m: self.WORD_FILTER[m.group(0).lower()], text
         )

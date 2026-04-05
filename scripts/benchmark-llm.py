@@ -1,0 +1,458 @@
+#!/usr/bin/env python3
+"""Benchmark TTFT and tok/s across LLM backends.
+
+Sends a fixed sequence of prompts to each engine, measuring time-to-first-token
+and generation speed.  Prompts build on each other to simulate a growing
+conversation (context window).
+
+Usage:
+    uv run python scripts/benchmark-llm.py
+    uv run python scripts/benchmark-llm.py --engines llamacpp,ollama:qwen3:4b-q4_K_M
+    uv run python scripts/benchmark-llm.py --csv results.csv
+    uv run python scripts/benchmark-llm.py --prompts scripts/my-prompts.txt
+"""
+
+import argparse
+import json
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_PROMPTS = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
+LOG_DIR = PROJECT_ROOT / "benchmark-logs"
+
+SYSTEM_PROMPT = (
+    "You are Kian, a helpful educating cartoon animal -- but it's a secret. "
+    "You are talking to an imaginative and curious child in grade 3. "
+    "Keep responses concise and conversational. Your output "
+    "will be spoken aloud, so never use markdown, asterisks, bullet points, emojis, "
+    "or any formatting. Use plain spoken English only."
+)
+
+
+def load_prompts(path: Path) -> list[str]:
+    """Load prompts from a text file (one per line, blank lines ignored)."""
+    lines = path.read_text().strip().splitlines()
+    return [l.strip() for l in lines if l.strip()]
+
+
+def append_log(log_path: Path, engine_name: str, prompts: list[str],
+               responses: list[str], results: list[dict]):
+    """Append a conversation log for one engine to the shared run log."""
+    lines = [f"{'='*60}", f"Engine: {engine_name}", f"{'='*60}", ""]
+    for i, (prompt, response, row) in enumerate(zip(prompts, responses, results)):
+        lines.append(f"--- Prompt {i+1} ---")
+        lines.append(f"User: {prompt}")
+        lines.append(f"Assistant: {response}")
+        lines.append(f"  TTFT={row['ttft']:.3f}s  tokens={row['tokens']}  "
+                     f"total={row['total_time']:.1f}s  tok/s={row['tok_per_sec']:.1f}")
+        lines.append("")
+
+    with open(log_path, "a") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Ollama engine
+# ---------------------------------------------------------------------------
+
+OLLAMA_HOST = "127.0.0.1"
+OLLAMA_PORT = 11434
+OLLAMA_URL = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}"
+
+
+def ollama_unload(model: str):
+    """Unload a model from Ollama to free GPU memory."""
+    try:
+        body = json.dumps({"model": model, "keep_alive": 0}).encode()
+        req = Request(
+            f"{OLLAMA_URL}/api/generate",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
+        urlopen(req, timeout=10)
+    except (URLError, OSError):
+        pass
+    time.sleep(1)
+
+
+def ollama_unload_all():
+    """Unload all Ollama models and wait until GPU memory is freed."""
+    try:
+        req = Request(f"{OLLAMA_URL}/api/ps", method="GET")
+        resp = urlopen(req, timeout=5)
+        data = json.loads(resp.read().decode())
+        models = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+        for name in models:
+            print(f"  Unloading Ollama model: {name}")
+            ollama_unload(name)
+        # Wait until all models are actually unloaded
+        if models:
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                req = Request(f"{OLLAMA_URL}/api/ps", method="GET")
+                resp = urlopen(req, timeout=5)
+                data = json.loads(resp.read().decode())
+                if not data.get("models"):
+                    print(f"  All models unloaded.")
+                    break
+                time.sleep(1)
+    except (URLError, OSError):
+        pass
+    time.sleep(2)
+
+
+def ollama_check_offload(model: str) -> int | None:
+    """Check and report GPU offload status after warmup. Returns % GPU."""
+    try:
+        req = Request(f"{OLLAMA_URL}/api/ps", method="GET")
+        resp = urlopen(req, timeout=5)
+        data = json.loads(resp.read().decode())
+        for m in data.get("models", []):
+            if m.get("name", "") == model:
+                size_gb = m.get("size", 0) / 1e9
+                vram_gb = m.get("size_vram", 0) / 1e9
+                pct = round((m.get("size_vram", 0) / m.get("size", 1)) * 100)
+                print(f"  Offload: {pct}% GPU  "
+                      f"(VRAM: {vram_gb:.1f}GB / Total: {size_gb:.1f}GB)")
+                if pct < 100:
+                    print(f"  WARNING: Model not fully offloaded to GPU!")
+                return pct
+    except (URLError, OSError):
+        pass
+    return None
+
+
+def ollama_warmup(model: str):
+    """Send a throwaway request so the model is loaded in GPU memory."""
+    body = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+        "think": False,
+        "options": {"num_ctx": 2048},
+    }).encode()
+    req = Request(
+        f"{OLLAMA_URL}/api/chat",
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urlopen(req, timeout=120)
+    except (URLError, OSError) as e:
+        print(f"  Warmup failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
+    """Benchmark an Ollama model, returning per-prompt metrics."""
+    engine_name = f"ollama:{model}"
+    print(f"\n{'='*60}")
+    print(f"Engine: {engine_name}")
+    print(f"{'='*60}")
+
+    # Unload any existing model, then warm up this one
+    ollama_unload_all()
+    print(f"  Warming up {model} ...")
+    ollama_warmup(model)
+    print(f"  Model loaded.")
+    gpu_pct = ollama_check_offload(model)
+    time.sleep(2)
+
+    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    results = []
+    responses = []
+
+    for i, prompt in enumerate(prompts):
+        history.append({"role": "user", "content": prompt})
+
+        body = json.dumps({
+            "model": model,
+            "messages": history,
+            "stream": True,
+            "think": False,
+            "options": {"num_ctx": 2048},
+        }).encode()
+
+        req = Request(
+            f"{OLLAMA_URL}/api/chat",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
+
+        t0 = time.monotonic()
+        resp = urlopen(req, timeout=120)
+
+        ttft = None
+        token_count = 0
+        full_response = []
+
+        for raw_line in resp:
+            line = raw_line.decode().strip()
+            if not line:
+                continue
+            chunk = json.loads(line)
+            token = chunk.get("message", {}).get("content", "")
+            if token:
+                if ttft is None:
+                    ttft = time.monotonic() - t0
+                token_count += 1
+                full_response.append(token)
+            if chunk.get("done"):
+                break
+        resp.close()
+
+        total = time.monotonic() - t0
+        gen_time = total - (ttft or total)
+        tps = token_count / gen_time if gen_time > 0 else 0
+
+        row = {
+            "engine": engine_name,
+            "prompt_no": i + 1,
+            "ttft": round(ttft or 0, 3),
+            "total_time": round(total, 3),
+            "tokens": token_count,
+            "tok_per_sec": round(tps, 1),
+            "gpu_pct": gpu_pct or 0,
+        }
+        results.append(row)
+        response_text = "".join(full_response)
+        responses.append(response_text)
+        print(f"  Prompt {i+1}: TTFT={row['ttft']:.3f}s  "
+              f"tokens={token_count}  "
+              f"total={row['total_time']:.1f}s  "
+              f"tok/s={row['tok_per_sec']:.1f}")
+
+        history.append({"role": "assistant", "content": response_text})
+
+    append_log(log_path, engine_name, prompts, responses, results)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# llama.cpp engine
+# ---------------------------------------------------------------------------
+
+LLAMACPP_MODELS = {
+    "Qwen3.5-2B-Q4_K_M": {"file": "Qwen3.5-2B-Q4_K_M.gguf"},
+    "granite-3.3-2b-instruct-Q4_K_M": {"file": "granite-3.3-2b-instruct-Q4_K_M.gguf"},
+}
+
+
+def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
+    """Run in a subprocess — benchmark one llamacpp model, print JSON to stdout."""
+    import gc
+    from llama_cpp import Llama
+
+    model_info = LLAMACPP_MODELS[model_name]
+    gguf_file = model_info["file"]
+    engine_name = f"llamacpp:{model_name}"
+
+    model_path = str(PROJECT_ROOT / "models" / gguf_file)
+    n_gpu_layers = model_info.get("n_gpu_layers", -1)
+    gpu_pct = 100 if n_gpu_layers == -1 else None
+
+    print(f"  Loading model (n_gpu_layers={n_gpu_layers}) ...", file=sys.stderr)
+    llm = Llama(
+        model_path=model_path,
+        n_ctx=2048,
+        n_gpu_layers=n_gpu_layers,
+        n_batch=256,
+        flash_attn=True,
+        verbose=False,
+    )
+    print(f"  Model loaded.", file=sys.stderr)
+
+    print(f"  Warming up ...", file=sys.stderr)
+    llm.create_chat_completion(
+        messages=[{"role": "user", "content": "hi"}],
+        max_tokens=10,
+    )
+    time.sleep(2)
+
+    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+    results = []
+    responses = []
+
+    for i, prompt in enumerate(prompts):
+        history.append({"role": "user", "content": prompt})
+
+        t0 = time.monotonic()
+        ttft = None
+        token_count = 0
+        full_response = []
+
+        response = llm.create_chat_completion(messages=history, stream=True)
+        for chunk in response:
+            delta = chunk["choices"][0]["delta"]
+            token = delta.get("content", "")
+            if token:
+                if ttft is None:
+                    ttft = time.monotonic() - t0
+                token_count += 1
+                full_response.append(token)
+
+        total = time.monotonic() - t0
+        gen_time = total - (ttft or total)
+        tps = token_count / gen_time if gen_time > 0 else 0
+
+        row = {
+            "engine": engine_name,
+            "prompt_no": i + 1,
+            "ttft": round(ttft or 0, 3),
+            "total_time": round(total, 3),
+            "tokens": token_count,
+            "tok_per_sec": round(tps, 1),
+            "gpu_pct": gpu_pct or 0,
+        }
+        results.append(row)
+        response_text = "".join(full_response)
+        responses.append(response_text)
+        print(f"  Prompt {i+1}: TTFT={row['ttft']:.3f}s  "
+              f"tokens={token_count}  "
+              f"total={row['total_time']:.1f}s  "
+              f"tok/s={row['tok_per_sec']:.1f}", file=sys.stderr)
+
+        history.append({"role": "assistant", "content": response_text})
+
+    append_log(Path(log_path), engine_name, prompts, responses, results)
+
+    # Output results as JSON on stdout for the parent to collect
+    json.dump(results, sys.stdout)
+
+
+def bench_llamacpp(model_name: str, prompts: list[str], log_path: Path) -> list[dict]:
+    """Run llamacpp benchmark in a subprocess to ensure full CUDA cleanup."""
+    import subprocess as sp
+
+    engine_name = f"llamacpp:{model_name}"
+    model_info = LLAMACPP_MODELS[model_name]
+    gguf_file = model_info["file"]
+    model_path = PROJECT_ROOT / "models" / gguf_file
+
+    print(f"\n{'='*60}")
+    print(f"Engine: {engine_name}")
+    print(f"{'='*60}")
+
+    # Free GPU memory from any loaded Ollama models
+    ollama_unload_all()
+
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model not found: {model_path}")
+
+    # Launch subprocess: run this same script with --_subprocess flag
+    cmd = [
+        sys.executable, __file__,
+        "--_subprocess", model_name,
+        "--prompts", str(DEFAULT_PROMPTS),
+        "--_log_path", str(log_path),
+    ]
+    # Pass prompts via the prompts file (already the default)
+    result = sp.run(cmd, capture_output=True, text=True, timeout=600)
+
+    # Print stderr (progress messages) to our stderr
+    if result.stderr:
+        for line in result.stderr.splitlines():
+            print(line)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Subprocess failed (exit {result.returncode})")
+
+    return json.loads(result.stdout)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+ALL_ENGINES = [
+    "llamacpp:Qwen3.5-2B-Q4_K_M",
+    "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
+    "ollama:qwen3.5:2b-q4_K_M",
+    "ollama:qwen3:4b-q4_K_M",
+    "ollama:qwen3.5:4b-q4_K_M",
+    "ollama:llama3.2:3b-instruct-q4_K_M",
+    "ollama:ministral-3:3b",
+    "ollama:gemma3n:e2b",
+    "ollama:granite3.3:2b",
+]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Benchmark LLM backends")
+    parser.add_argument(
+        "--engines",
+        help=f"Comma-separated list of engines (default: all). Available: {','.join(ALL_ENGINES)}",
+    )
+    parser.add_argument(
+        "--csv", metavar="FILE",
+        help="Write results to CSV file",
+    )
+    parser.add_argument(
+        "--prompts", metavar="FILE", default=str(DEFAULT_PROMPTS),
+        help=f"Prompts file, one per line (default: {DEFAULT_PROMPTS.name})",
+    )
+    # Hidden flag: run a single llamacpp model in a subprocess
+    parser.add_argument("--_subprocess", metavar="MODEL", help=argparse.SUPPRESS)
+    parser.add_argument("--_log_path", metavar="PATH", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    # Subprocess mode: benchmark one llamacpp model and exit
+    if args._subprocess:
+        prompts = load_prompts(Path(args.prompts))
+        _llamacpp_subprocess(args._subprocess, prompts, args._log_path)
+        return
+
+    engines = args.engines.split(",") if args.engines else ALL_ENGINES
+    prompts = load_prompts(Path(args.prompts))
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    LOG_DIR.mkdir(exist_ok=True)
+    log_path = LOG_DIR / f"{timestamp}.log"
+
+    print(f"Prompts ({len(prompts)}):")
+    for i, p in enumerate(prompts):
+        print(f"  {i+1}. {p}")
+
+    all_results = []
+
+    for engine in engines:
+        try:
+            if engine.startswith("llamacpp:"):
+                model_name = engine[len("llamacpp:"):]
+                all_results.extend(bench_llamacpp(model_name, prompts, log_path))
+            elif engine.startswith("ollama:"):
+                model = engine[len("ollama:"):]
+                all_results.extend(bench_ollama(model, prompts, log_path))
+            else:
+                print(f"Unknown engine: {engine}", file=sys.stderr)
+                sys.exit(1)
+        except Exception as e:
+            print(f"\n  ERROR: {engine} failed: {e}")
+            print(f"  Skipping to next engine.\n")
+
+    # Print CSV summary
+    header = "Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%"
+    lines = [header]
+    for r in all_results:
+        lines.append(f"{r['engine']},{r['prompt_no']},{r['ttft']},{r['total_time']},{r['tokens']},{r['tok_per_sec']},{r['gpu_pct']}")
+
+    print(f"\n{'='*60}")
+    print("CSV Results:")
+    print(f"{'='*60}")
+    for line in lines:
+        print(line)
+
+    if args.csv:
+        Path(args.csv).write_text("\n".join(lines) + "\n")
+        print(f"\nSaved to {args.csv}")
+
+    print(f"\nConversation log: {log_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -107,7 +107,7 @@ Children's content filtering requires multiple layers, since no single mechanism
 
 Audio-based educational assistants face a fundamental challenge with mathematics: spoken language is inherently sequential and ambiguous for mathematical expressions. ``a plus b over c'' could mean $a + \frac{b}{c}$ or $\frac{a+b}{c}$.
 
-Kian addresses this by allowing the LLM to emit standard LaTeX notation, which is converted to unambiguous spoken English before TTS synthesis. The system:
+Kian addresses this by allowing the LLM to emit standard LaTeX notation, which is converted to spoken English before TTS synthesis. The system:
 
 \begin{itemize}[nosep]
   \item Detects math regions via standard delimiters (\texttt{\$...\$}, \texttt{\$\$...\$\$}, \verb|\(...\)|, \verb|\[...\]|, and \verb|\begin{equation}|).
@@ -131,6 +131,119 @@ $$t_{\text{turn}} = t_{\text{silence}} + t_{\text{STT}} + t_{\text{TTFT}} + t_{\
 Crucially, \emph{tokens per second} is not the bottleneck. Even at moderate generation rates, text accumulates faster than it can be spoken. The streaming architecture exploits this: TTS begins on the first clause boundary (minimum 25 characters) while the LLM continues generating. The child hears a continuous response with natural pauses at sentence and clause boundaries (500\,ms and 200\,ms respectively).
 
 The Jetson Orin's value proposition is minimizing $t_{\text{TTFT}}$: its GPU and high memory bandwidth accelerate the prefill phase of transformer inference, which is the compute-intensive step that determines when the first token appears.
+
+\section{Wikipedia Context Augmentation}
+
+Small language models hallucinate frequently on factual questions---a serious issue for an educational tool.
+Kian mitigates this with a retrieval-augmented generation (RAG) pipeline backed by Simple English Wikipedia, an edition written at a reading level appropriate for children.
+
+\subsection{Offline Index}
+
+A build script (\texttt{build-wiki-db.py}) downloads the Simple Wikipedia XML dump (${\sim}350$\,MB) and constructs a local SQLite database with an FTS5 full-text search index (${\sim}170$\,MB).
+The entire index lives on-device; no network access is needed at query time.
+
+\subsection{Topic Extraction}
+
+Before each LLM turn, the child's utterance is matched against a set of 20+ regex patterns designed to extract educational topics from natural speech: ``what is a black hole'', ``tell me about volcanoes'', ``who was Marie Curie'', ``how does photosynthesis work'', and similar phrasings.
+Stopwords are stripped, and the remaining terms are used as an FTS5 query.
+
+\subsection{Retrieval and Injection}
+
+If the FTS5 search returns a result above a BM25 relevance threshold, the first 500 characters of the matching article are injected into the system prompt as reference material for that turn.
+The LLM is instructed to use the reference only if relevant and never to mention its source.
+When conversation turns are evicted from the context window, corresponding wiki references are also evicted, keeping the context clean.
+
+This approach grounds the LLM's responses in factual content without requiring a larger model or internet access.
+
+\section{Model Evaluation}
+
+\subsection{Methodology}
+
+We evaluated candidate models using a sequential prompt benchmark that simulates a child's conversation.
+Eight prompts progress from a simple greeting through factual questions to a creative storytelling request, building conversational context incrementally.
+Each model was assessed on three qualitative dimensions:
+
+\begin{itemize}[nosep]
+  \item \textbf{Succinctness}: Are short-answer responses concise? (Evaluated on 6 factual prompts.)
+  \item \textbf{Complexity}: Is the storytelling response sufficiently detailed? (Evaluated on 1 creative prompt.)
+  \item \textbf{Accuracy}: Are responses factually correct and free of hallucinations? (Evaluated across all 8 prompts.)
+\end{itemize}
+
+\noindent Models were benchmarked on the target hardware (Jetson Orin Nano, 8\,GB) using two runtimes:
+llama-cpp-python\footnote{\url{https://github.com/abetlen/llama-cpp-python}} for in-process GGUF inference, and
+Ollama\footnote{\url{https://ollama.com/}} as an OpenAI-compatible server with native CUDA support.
+
+\subsection{Performance Results}
+
+All models were evaluated with a 2048-token context window across 5 benchmark runs (40 prompts per model).
+Table~\ref{tab:perf} summarizes latency and throughput; Table~\ref{tab:quality} summarizes qualitative response quality.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{l|r|r|r|r|r}
+\toprule
+Engine & Mean TTFT (s) & SE & p95 TTFT (s) & tok/s & GPU (\%) \\
+\midrule
+llamacpp:Granite 3.3-2B & 0.093 & 0.006 & 0.191 & 25.6 & 100 \\
+ollama:Granite 3.3-2B & 0.232 & 0.006 & 0.316 & 25.9 & 100 \\
+llamacpp:Qwen3.5-2B & 0.416 & 0.030 & 0.736 & 25.4 & 100 \\
+ollama:Qwen3-4B & 0.521 & 0.009 & 0.618 & 15.5 & 100 \\
+ollama:Llama 3.2-3B & 0.527 & 0.005 & 0.585 & 19.2 & 100 \\
+ollama:Ministral-3 3B & 0.643 & 0.014 & 0.781 & 14.5 & 69 \\
+\midrule
+ollama:Qwen3.5-2B & 1.200 & 0.032 & 1.561 & 9.6 & 47 \\
+ollama:Qwen3.5-4B & 1.950 & 0.094 & 3.043 & 8.3 & 74 \\
+ollama:Gemma3n-E2B & 2.336 & 0.203 & 4.512 & 15.2 & 68 \\
+\bottomrule
+\end{tabular}
+\caption{Performance benchmarks on Jetson Orin Nano (8\,GB). Mean and p95 TTFT over 5 runs $\times$ 8 prompts = 40 samples per engine. All models use Q4\_K\_M quantization and 2048-token context. GPU\% indicates fraction of model offloaded to GPU; models below the midline could not achieve full offload.}
+\label{tab:perf}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llccl}
+\toprule
+Engine & Model & Accuracy & Consistency & Key pattern \\
+\midrule
+Ollama & Qwen3-4B & 38/40 & 8,8,7,8,7 & Most consistent usable model \\
+llama.cpp & Qwen3.5-2B & 35/40 & 7,7,7,7,7 & Deterministic; same 2 errors every run \\
+Ollama & Llama 3.2-3B & 36/40 & 8,8,6,7,7 & Volatile; dodges speed comparisons \\
+Ollama & Ministral-3 3B & 35/40 & 7,7,7,7,7 & Always overstates human running speed \\
+llama.cpp & Granite 3.3-2B & 33/40 & 8,7,7,6,5 & Degrading; verbose for voice \\
+\bottomrule
+\end{tabular}
+\caption{Qualitative accuracy across 5 benchmark runs (8 prompts each) for models achieving 100\% GPU offload. Accuracy counts factually correct, non-hallucinated responses. Consistency column shows per-run scores.}
+\label{tab:quality}
+\end{table}
+
+\subsection{Qualitative Performance}
+
+\begin{itemize}[nosep]
+  \item \textbf{Qwen3-4B} (via Ollama) produced the most consistently accurate, concise, and child-appropriate responses across all five runs.
+  \item \textbf{Qwen3.5-2B} (via llama.cpp) was highly performant but qualitatively inferior to Qwen3-4B---making it appropriate where speed of response or hardware constraints are primary concerns. Similar errors manifested between runs, suggesting systematic biases in the model weights.
+  \item \textbf{Llama 3.2-3B} showed strong accuracy in early runs but was inconsistent, with later runs producing evasive answers and factual errors. The variance makes it less reliable for unsupervised use.
+  \item \textbf{Granite 3.3-2B} achieved remarkably low TTFT (0.09\,s) via llama.cpp but produced overly verbose responses unsuitable for a voice interface. Accuracy degraded across runs, with early hallucinations cascading errors through subsequent conversation turns.
+  \item Models that could not be fully offloaded to GPU (e.g., Qwen3.5-4B at 3.4\,GB) suffered from degraded throughput and elevated hallucination rates.
+\end{itemize}
+
+\noindent The system defaults to Qwen3.5-2B via llama.cpp for lowest latency, with Qwen3-4B via Ollama available as an alternative quality backend.
+
+\subsection{Model Sources}
+
+\begin{itemize}[nosep]
+  \item Qwen3.5-2B Q4\_K\_M GGUF: \url{https://huggingface.co/unsloth/Qwen3.5-2B-GGUF}
+  \item Qwen3-4B Q4\_K\_M: \url{https://ollama.com/library/qwen3}
+  \item Llama 3.2-3B Instruct Q4\_K\_M: \url{https://ollama.com/library/llama3.2}
+  \item Ministral-3 3B: \url{https://ollama.com/library/ministral-3}
+  \item Granite 3.3-2B Instruct Q4\_K\_M: \url{https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF}
+  \item Silero VAD: \url{https://github.com/snakers4/silero-vad}
+  \item Faster-whisper: \url{https://github.com/SYSTRAN/faster-whisper}
+  \item Piper TTS: \url{https://github.com/rhasspy/piper}
+  \item Simple English Wikipedia: \url{https://dumps.wikimedia.org/simplewiki/}
+\end{itemize}
 
 \section{Limitations and Future Work}
 

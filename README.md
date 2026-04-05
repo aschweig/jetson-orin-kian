@@ -11,7 +11,7 @@ Two LLM backends:
 | Backend | Model | How it runs |
 |---------|-------|-------------|
 | `llamacpp` (default) | Qwen3.5-2B (GGUF) | In-process via llama-cpp-python |
-| `mlc` | Qwen3-4B (MLC) | Docker container with OpenAI-compatible API |
+| `ollama` | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
 
 All components run locally. No cloud APIs required.
 
@@ -22,7 +22,7 @@ All components run locally. No cloud APIs required.
 - [uv](https://docs.astral.sh/uv/) package manager
 - A microphone and speakers/headphones
 - ~4GB disk for models
-- Docker with NVIDIA runtime (only for `--backend mlc`)
+- [Ollama](https://ollama.com/) (only for `--backend ollama`)
 
 ## System Dependencies
 
@@ -104,7 +104,7 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    uv sync
    ```
 
-3. **Rebuild llama-cpp-python with CUDA** (for GPU-accelerated LLM inference):
+3. **Rebuild llama-cpp-python with CUDA** (only for `--backend llamacpp`, the default):
 
    ```bash
    CMAKE_ARGS="-DGGML_CUDA=on" uv pip install --force-reinstall --no-binary llama-cpp-python --no-cache llama-cpp-python
@@ -112,6 +112,7 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
 
    This compiles llama.cpp from source with CUDA support. Takes several minutes.
    Without this step, the LLM runs on CPU only and will be very slow.
+   Skip this if you only plan to use the Ollama backend.
 
 4. **Download models:**
 
@@ -131,25 +132,29 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    uv run kian
    ```
 
-## MLC Backend (larger model via Docker)
+## Ollama Backend (larger model)
 
-The MLC backend runs Qwen3-4B inside a Docker container, which is more memory-efficient than llama.cpp for larger models on Jetson's shared 8GB RAM.
+The Ollama backend runs Qwen3-4B via Ollama's server, which provides efficient GPU inference on Jetson.
 
-1. **Pre-pull the container image** (~7GB, one-time):
-
-   ```bash
-   sudo docker pull dustynv/mlc:0.20.0-r36.4.0
-   ```
-
-2. **Run with MLC:**
+1. **Install Ollama:**
 
    ```bash
-   uv run kian --backend mlc
+   curl -fsSL https://ollama.com/install.sh | sh
    ```
 
-   On first run, the Qwen3-4B model (~2.3GB) is downloaded automatically inside the container. The model cache is persisted in `models/hf-cache/`.
+2. **Pull the model** (~2.7GB):
 
-   The container is started and stopped automatically by kian.
+   ```bash
+   ollama pull qwen3:4b-q4_K_M
+   ```
+
+3. **Run with Ollama:**
+
+   ```bash
+   uv run kian --backend ollama
+   ```
+
+   Ollama runs as a systemd service and starts automatically on boot. The model loads into GPU memory on first request (~4-5s cold start), then stays loaded.
 
 ## Usage
 
@@ -157,14 +162,14 @@ The MLC backend runs Qwen3-4B inside a Docker container, which is more memory-ef
 # Default: Qwen3.5-2B via llama.cpp
 uv run kian
 
-# Qwen3-4B via MLC (Docker)
-uv run kian --backend mlc
+# Qwen3-4B via Ollama
+uv run kian --backend ollama
 
 # Custom model with llama.cpp
 uv run kian --model models/some-other-model.gguf
 
-# Custom model with MLC
-uv run kian --backend mlc --model "HF://mlc-ai/some-other-model-MLC"
+# Custom model with Ollama
+uv run kian --backend ollama --model "qwen3:8b"
 ```
 
 Press Q + Enter to quit.
@@ -180,7 +185,7 @@ kian/
 │   ├── leds.py         # status LEDs via Jetson GPIO
 │   ├── llm.py          # backend selection + shared interface
 │   ├── llm_llamacpp.py # llama.cpp backend (Qwen3.5-2B)
-│   ├── llm_mlc.py      # MLC Docker backend (Qwen3-4B)
+│   ├── llm_ollama.py   # Ollama backend (Qwen3-4B)
 │   └── tts.py          # text-to-speech + playback thread (Piper)
 ├── models/             # model files (not checked in)
 ├── scripts/
@@ -193,7 +198,7 @@ kian/
 
 1. **VAD** continuously listens on the mic and detects speech segments
 2. **Whisper** transcribes each speech segment to text
-3. **LLM** streams a response token-by-token (via llama.cpp or MLC container)
+3. **LLM** streams a response token-by-token (via llama.cpp or Ollama)
 4. Tokens are buffered and split on punctuation boundaries (~25 chars min)
 5. Each text fragment is synthesized by **Piper TTS** and queued for playback
 6. A background thread plays audio chunks sequentially, so playback starts while the LLM is still generating
@@ -203,7 +208,7 @@ kian/
 Models are stored in `models/` and excluded from git. You can swap them:
 
 - **LLM (llama.cpp):** Any GGUF model works. Pass `--model path/to/model.gguf`.
-- **LLM (MLC):** Pass `--model "HF://org/model-MLC"` with any MLC-compiled model.
+- **LLM (Ollama):** Pass `--model "model:tag"` with any model from the [Ollama library](https://ollama.com/library).
 - **TTS voice:** Browse [Piper voices](https://github.com/rhasspy/piper/blob/master/VOICES.md). Download the `.onnx` + `.onnx.json` pair.
 - **Whisper:** Change `MODEL_SIZE` in `kian/stt.py` (`tiny`, `base`, `small`, `medium`).
 
@@ -245,13 +250,26 @@ pulseaudio --start
 
 ## Memory Budget (~8GB)
 
+**llamacpp backend (Qwen3.5-2B):**
+
 | Component | RAM |
 |-----------|-----|
 | OS/system | ~1.5 GB |
-| Qwen3.5-2B Q4_K_M (llamacpp) | ~1.5 GB |
+| Qwen3.5-2B Q4_K_M | ~1.5 GB |
 | Whisper tiny | ~0.1 GB |
 | Piper TTS | ~0.1 GB |
 | KV cache + buffers | ~1-2 GB |
 | **Headroom** | **~3-4 GB** |
 
-With the MLC backend, the Docker container manages its own GPU memory for the larger Qwen3-4B model.
+**Ollama backend (Qwen3-4B):**
+
+| Component | RAM |
+|-----------|-----|
+| OS/system | ~1.5 GB |
+| Ollama + Qwen3-4B Q4_K_M | ~3.4 GB |
+| Whisper tiny | ~0.1 GB |
+| Piper TTS | ~0.1 GB |
+| KV cache (2K context) | ~0.3 GB |
+| **Headroom** | **~2 GB** |
+
+Note: Both backends share the same 8GB between CPU and GPU. Do not run both simultaneously.

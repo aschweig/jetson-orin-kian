@@ -104,8 +104,8 @@ def create_llm(backend: str = "llamacpp", model: str | None = None) -> LLMBacken
     if backend == "llamacpp":
         from kian.llm_llamacpp import LlamaLLM
         return LlamaLLM(model_path=model)
-    elif backend == "mlc":
-        from kian.llm_mlc import MlcLLM
-        return MlcLLM(model=model)
+    elif backend == "ollama":
+        from kian.llm_ollama import OllamaLLM
+        return OllamaLLM(model=model)
     else:
-        raise ValueError(f"Unknown backend: {backend!r}  (choose 'llamacpp' or 'mlc')")
+        raise ValueError(f"Unknown backend: {backend!r}  (choose 'llamacpp' or 'ollama')")
