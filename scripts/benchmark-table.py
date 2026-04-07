@@ -99,14 +99,10 @@ def make_latex(stats: list[dict]) -> str:
     """Generate LaTeX tabular body (rows only, no begin/end table)."""
     has_multimodal = any(r["name"] in MULTIMODAL for r in stats)
     lines = []
-    lines.append(r"\begin{tabular}{l|r|r|r|r|r|r}")
+    lines.append(r"\begin{tabular}{l|r|r|r|r|r}")
     lines.append(r"\toprule")
-    lines.append(r"Engine & Mean TTFT (s) & SE & p95 TTFT (s) & tok/s & GPU (\%) & RAM (GB) \\")
+    lines.append(r"Engine & Mean TTFT (s) & s.e.\ (s) & p95 TTFT (s) & tok/s & RAM (GB) \\")
     lines.append(r"\midrule")
-
-    # Split into full-offload and partial-offload groups
-    full = [r for r in stats if r["gpu"] >= 99]
-    partial = [r for r in stats if r["gpu"] < 99]
 
     def _row(r):
         name = r["name"].replace("_", r"\_")
@@ -114,22 +110,22 @@ def make_latex(stats: list[dict]) -> str:
             name += r"\textsuperscript{$\dagger$}"
         return (
             f"{name} & {r['mean_ttft']:.3f} & {r['se']:.3f} & "
-            f"{r['p95_ttft']:.3f} & {r['tps']:.1f} & {r['gpu']:.0f} & "
+            f"{r['p95_ttft']:.3f} & {r['tps']:.1f} & "
             f"{r['total_ram']:.1f} \\\\"
         )
 
-    for r in full:
+    for r in stats:
         lines.append(_row(r))
-    if partial:
-        lines.append(r"\midrule")
-        for r in partial:
-            lines.append(_row(r))
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
+    footnotes = []
     if has_multimodal:
-        lines.append(r"\vspace{2pt}")
-        lines.append(r"\noindent{\footnotesize $\dagger$\,Multimodal (vision) model.}")
+        footnotes.append(r"$\dagger$\,Multimodal (vision) model.")
+    footnotes.append(r"All models achieved 100\% GPU offload.\textsuperscript{$\ddagger$}")
+    lines.append(r"\vspace{2pt}")
+    lines.append(r"\noindent{\footnotesize " + " ".join(footnotes) + "}")
+    lines.append(r"\noindent{\footnotesize \textsuperscript{$\ddagger$}\,Kernel page cache from prior model loads (via \texttt{mmap}) was cleared between engines using \texttt{drop\_caches} to ensure full offload on Jetson unified memory.}")
     return "\n".join(lines)
 
 

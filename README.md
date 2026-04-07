@@ -237,7 +237,7 @@ Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization 
 
 | Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
 |--------|-----------|----------|-------|------|-----|
-| llamacpp:Granite 3.3-2B | 0.09s | 0.18s | 25.6 | 100% | 1.6 GB |
+| llamacpp:Granite 3.3-2B | 0.09s | 0.18s | 25.6 | 100% | 1.5 GB |
 | ollama:Granite 3.3-2B | 0.23s | 0.32s | 25.9 | 100% | 1.8 GB |
 | ollama:Granite 4-3B | 0.37s | 0.47s | 18.6 | 100% | 2.4 GB |
 | llamacpp:Qwen3.5-2B | 0.41s | 0.74s | 25.3 | 100% | 1.3 GB |
