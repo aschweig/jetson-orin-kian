@@ -235,25 +235,31 @@ pulseaudio --start
 
 Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization and 2048-token context.
 
-| Engine | Mean TTFT | p95 TTFT | tok/s | GPU% |
-|--------|-----------|----------|-------|------|
-| llamacpp: Granite 3.3 2B | 0.09s | 0.19s | 25.6 | 100% |
-| ollama: Granite 3.3 2B | 0.23s | 0.32s | 25.9 | 100% |
-| llamacpp: Qwen3.5 2B | 0.42s | 0.74s | 25.4 | 100% |
-| **ollama: Qwen3 4B** | **0.52s** | **0.62s** | **15.5** | **100%** |
-| ollama: Llama 3.2 3B | 0.53s | 0.59s | 19.2 | 100% |
-| ollama: Ministral-3 3B | 0.64s | 0.78s | 14.5 | 69% |
+| Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
+|--------|-----------|----------|-------|------|-----|
+| llamacpp:Granite 3.3-2B | 0.09s | 0.18s | 25.6 | 100% | 1.6 GB |
+| ollama:Granite 3.3-2B | 0.23s | 0.32s | 25.9 | 100% | 1.8 GB |
+| ollama:Granite 4-3B | 0.37s | 0.47s | 18.6 | 100% | 2.4 GB |
+| llamacpp:Qwen3.5-2B | 0.41s | 0.74s | 25.3 | 100% | 1.3 GB |
+| ollama:Llama 3.2-3B | 0.53s | 0.65s | 19.2 | 100% | 2.5 GB |
+| ollama:Qwen3-4B | 0.54s | 0.65s | 15.3 | 100% | 3.4 GB |
+| ollama:Ministral-3 3B | 0.63s | 0.70s | 19.6 | 100% | 4.8 GB |
+| ollama:Qwen3.5-2B | 1.05s | 1.32s | 22.7 | 100% | 3.5 GB |
+| ollama:Nemotron-3 Nano 4B | 1.28s | 2.21s | 15.8 | 100% | 5.2 GB |
+| ollama:Qwen3.5-4B | 1.72s | 2.33s | 11.4 | 100% | 6.1 GB |
 
 Models that could not fully offload to GPU suffered 2-5x higher TTFT and are omitted. The default backend (Qwen3-4B via Ollama, **bold**) was selected for best accuracy and response quality. See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
 
-## Memory Budget (~8GB)
+## Memory Budget (~8GB, headless)
+
+Running headless (no desktop environment) frees 1--1.3 GB of RAM for GPU offload.
 
 | Component | RAM |
 |-----------|-----|
-| OS/system | ~1.5 GB |
+| OS/system (headless) | ~1.0 GB |
 | Ollama + Qwen3-4B Q4_K_M | ~3.4 GB |
 | Safety classifier (CPU) | ~0.4 GB |
 | Whisper tiny | ~0.1 GB |
-| Piper TTS | ~0.1 GB |
+| Piper TTS + VAD | ~0.2 GB |
 | KV cache (2K context) | ~0.3 GB |
-| **Headroom** | **~1.5 GB** |
+| **Headroom** | **~2.4 GB** |

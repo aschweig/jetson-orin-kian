@@ -27,6 +27,7 @@ class LlamaLLM:
             n_gpu_layers=n_gpu_layers,
             n_batch=256,
             flash_attn=True,
+            use_mmap=False,
             verbose=False,
         )
         self._history: list[dict] = [{"role": "system", "content": system_prompt()}]

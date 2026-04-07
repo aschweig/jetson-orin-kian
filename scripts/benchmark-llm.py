@@ -80,6 +80,16 @@ def ollama_unload(model: str):
     time.sleep(1)
 
 
+def drop_caches():
+    """Drop kernel page cache to free mmap'd GGUF pages (requires sudo)."""
+    import subprocess as sp
+    try:
+        sp.run(["sudo", "tee", "/proc/sys/vm/drop_caches"],
+               input=b"3", stdout=sp.DEVNULL, timeout=5)
+    except (sp.TimeoutExpired, OSError):
+        pass
+
+
 def ollama_unload_all():
     """Unload all Ollama models and wait until GPU memory is freed."""
     try:
@@ -103,28 +113,32 @@ def ollama_unload_all():
                 time.sleep(1)
     except (URLError, OSError):
         pass
+    drop_caches()
     time.sleep(2)
 
 
-def ollama_check_offload(model: str) -> int | None:
-    """Check and report GPU offload status after warmup. Returns % GPU."""
+def ollama_check_offload(model: str) -> tuple[int | None, float | None, float | None]:
+    """Check and report GPU offload status after warmup.
+
+    Returns (gpu_pct, vram_gb, total_gb).
+    """
     try:
         req = Request(f"{OLLAMA_URL}/api/ps", method="GET")
         resp = urlopen(req, timeout=5)
         data = json.loads(resp.read().decode())
         for m in data.get("models", []):
             if m.get("name", "") == model:
-                size_gb = m.get("size", 0) / 1e9
+                total_gb = m.get("size", 0) / 1e9
                 vram_gb = m.get("size_vram", 0) / 1e9
                 pct = round((m.get("size_vram", 0) / m.get("size", 1)) * 100)
                 print(f"  Offload: {pct}% GPU  "
-                      f"(VRAM: {vram_gb:.1f}GB / Total: {size_gb:.1f}GB)")
+                      f"(VRAM: {vram_gb:.1f}GB / Total: {total_gb:.1f}GB)")
                 if pct < 100:
                     print(f"  WARNING: Model not fully offloaded to GPU!")
-                return pct
+                return pct, round(vram_gb, 2), round(total_gb, 2)
     except (URLError, OSError):
         pass
-    return None
+    return None, None, None
 
 
 def ollama_warmup(model: str):
@@ -160,7 +174,7 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
     print(f"  Warming up {model} ...")
     ollama_warmup(model)
     print(f"  Model loaded.")
-    gpu_pct = ollama_check_offload(model)
+    gpu_pct, vram_gb, total_gb = ollama_check_offload(model)
     time.sleep(2)
 
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -218,6 +232,8 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
             "tokens": token_count,
             "tok_per_sec": round(tps, 1),
             "gpu_pct": gpu_pct or 0,
+            "vram_gb": vram_gb or 0,
+            "total_ram_gb": total_gb or 0,
         }
         results.append(row)
         response_text = "".join(full_response)
@@ -255,6 +271,9 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
     model_path = str(PROJECT_ROOT / "models" / gguf_file)
     n_gpu_layers = model_info.get("n_gpu_layers", -1)
     gpu_pct = 100 if n_gpu_layers == -1 else None
+    model_size_gb = round(Path(model_path).stat().st_size / 1e9, 2)
+    vram_gb = model_size_gb if n_gpu_layers == -1 else 0
+    total_ram_gb = model_size_gb
 
     print(f"  Loading model (n_gpu_layers={n_gpu_layers}) ...", file=sys.stderr)
     llm = Llama(
@@ -263,6 +282,7 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
         n_gpu_layers=n_gpu_layers,
         n_batch=256,
         flash_attn=True,
+        use_mmap=False,
         verbose=False,
     )
     print(f"  Model loaded.", file=sys.stderr)
@@ -308,6 +328,8 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
             "tokens": token_count,
             "tok_per_sec": round(tps, 1),
             "gpu_pct": gpu_pct or 0,
+            "vram_gb": vram_gb,
+            "total_ram_gb": total_ram_gb,
         }
         results.append(row)
         response_text = "".join(full_response)
@@ -362,6 +384,10 @@ def bench_llamacpp(model_name: str, prompts: list[str], log_path: Path) -> list[
     if result.returncode != 0:
         raise RuntimeError(f"Subprocess failed (exit {result.returncode})")
 
+    # Wait for Jetson unified memory to be reclaimed after subprocess exits.
+    print("  Waiting for GPU memory reclaim ...")
+    time.sleep(5)
+
     return json.loads(result.stdout)
 
 
@@ -370,15 +396,18 @@ def bench_llamacpp(model_name: str, prompts: list[str], log_path: Path) -> list[
 # ---------------------------------------------------------------------------
 
 ALL_ENGINES = [
-    "llamacpp:Qwen3.5-2B-Q4_K_M",
-    "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
+    # Ollama first — reliable unload via API between models
     "ollama:qwen3.5:2b-q4_K_M",
     "ollama:qwen3:4b-q4_K_M",
     "ollama:qwen3.5:4b-q4_K_M",
     "ollama:llama3.2:3b-instruct-q4_K_M",
     "ollama:ministral-3:3b",
-    "ollama:gemma3n:e2b",
     "ollama:granite3.3:2b",
+    "ollama:granite4:3b",
+    "ollama:nemotron-3-nano:4b",
+    # llamacpp last — CUDA memory not reliably freed on Jetson after exit
+    "llamacpp:Qwen3.5-2B-Q4_K_M",
+    "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
 ]
 
 
@@ -436,10 +465,10 @@ def main():
             print(f"  Skipping to next engine.\n")
 
     # Print CSV summary
-    header = "Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%"
+    header = "Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB"
     lines = [header]
     for r in all_results:
-        lines.append(f"{r['engine']},{r['prompt_no']},{r['ttft']},{r['total_time']},{r['tokens']},{r['tok_per_sec']},{r['gpu_pct']}")
+        lines.append(f"{r['engine']},{r['prompt_no']},{r['ttft']},{r['total_time']},{r['tokens']},{r['tok_per_sec']},{r['gpu_pct']},{r['vram_gb']},{r['total_ram_gb']}")
 
     print(f"\n{'='*60}")
     print("CSV Results:")

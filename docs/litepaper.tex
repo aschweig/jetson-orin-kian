@@ -66,13 +66,14 @@ Kian targets the NVIDIA Jetson Orin Nano (8\,GB unified memory). The choice is d
 \toprule
 Component & Memory \\
 \midrule
-OS / system & $\sim$1.5\,GB \\
+OS / system (headless) & $\sim$1.0\,GB \\
 Ollama + LLM (Qwen3-4B Q4\_K\_M) & $\sim$3.4\,GB \\
-STT (Whisper small.en) & $\sim$0.5\,GB \\
+Safety classifier (CPU) & $\sim$0.4\,GB \\
+STT (Whisper tiny) & $\sim$0.1\,GB \\
 VAD (Silero) + TTS (Piper) & $\sim$0.2\,GB \\
 KV cache (2K context) & $\sim$0.3\,GB \\
 \midrule
-Headroom & $\sim$1.5--2\,GB \\
+Headroom & $\sim$2.4\,GB \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -181,23 +182,8 @@ Table~\ref{tab:perf} summarizes latency and throughput; Table~\ref{tab:quality} 
 \begin{table}[h]
 \centering
 \small
-\begin{tabular}{l|r|r|r|r|r}
-\toprule
-Engine & Mean TTFT (s) & SE & p95 TTFT (s) & tok/s & GPU (\%) \\
-\midrule
-llamacpp:Granite 3.3-2B & 0.093 & 0.006 & 0.191 & 25.6 & 100 \\
-ollama:Granite 3.3-2B & 0.232 & 0.006 & 0.316 & 25.9 & 100 \\
-llamacpp:Qwen3.5-2B & 0.416 & 0.030 & 0.736 & 25.4 & 100 \\
-ollama:Qwen3-4B & 0.521 & 0.009 & 0.618 & 15.5 & 100 \\
-ollama:Llama 3.2-3B & 0.527 & 0.005 & 0.585 & 19.2 & 100 \\
-ollama:Ministral-3 3B & 0.643 & 0.014 & 0.781 & 14.5 & 69 \\
-\midrule
-ollama:Qwen3.5-2B & 1.200 & 0.032 & 1.561 & 9.6 & 47 \\
-ollama:Qwen3.5-4B & 1.950 & 0.094 & 3.043 & 8.3 & 74 \\
-ollama:Gemma3n-E2B & 2.336 & 0.203 & 4.512 & 15.2 & 68 \\
-\bottomrule
-\end{tabular}
-\caption{Performance benchmarks on Jetson Orin Nano (8\,GB). Mean and p95 TTFT over 5 runs $\times$ 8 prompts = 40 samples per engine. All models use Q4\_K\_M quantization and 2048-token context. GPU\% indicates fraction of model offloaded to GPU; models below the midline could not achieve full offload.}
+\input{benchmark-table}
+\caption{Performance benchmarks on Jetson Orin Nano (8\,GB, headless). Mean and p95 TTFT over 5 runs $\times$ 8 prompts = 40 samples per engine. All models use Q4\_K\_M quantization and 2048-token context. RAM is total allocation reported by the runtime including KV cache.}
 \label{tab:perf}
 \end{table}
 
@@ -236,9 +222,12 @@ llama.cpp & Granite 3.3-2B & 33/40 & 8,7,7,6,5 & Degrading; verbose for voice \\
 \begin{itemize}[nosep]
   \item Qwen3.5-2B Q4\_K\_M GGUF: \url{https://huggingface.co/unsloth/Qwen3.5-2B-GGUF}
   \item Qwen3-4B Q4\_K\_M: \url{https://ollama.com/library/qwen3}
+  \item Qwen3.5-2B, Qwen3.5-4B: \url{https://ollama.com/library/qwen3.5}
   \item Llama 3.2-3B Instruct Q4\_K\_M: \url{https://ollama.com/library/llama3.2}
   \item Ministral-3 3B: \url{https://ollama.com/library/ministral-3}
-  \item Granite 3.3-2B Instruct Q4\_K\_M: \url{https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF}
+  \item Granite 3.3-2B: \url{https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF}
+  \item Granite 4-3B: \url{https://ollama.com/library/granite4}
+  \item Nemotron-3 Nano 4B: \url{https://ollama.com/library/nemotron-3-nano}
   \item Silero VAD: \url{https://github.com/snakers4/silero-vad}
   \item Faster-whisper: \url{https://github.com/SYSTRAN/faster-whisper}
   \item Piper TTS: \url{https://github.com/rhasspy/piper}
