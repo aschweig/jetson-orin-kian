@@ -237,16 +237,16 @@ Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization 
 
 | Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
 |--------|-----------|----------|-------|------|-----|
-| llamacpp:Granite 3.3-2B | 0.09s | 0.18s | 25.6 | 100% | 1.5 GB |
-| ollama:Granite 3.3-2B | 0.23s | 0.32s | 25.9 | 100% | 1.8 GB |
-| ollama:Granite 4-3B | 0.37s | 0.47s | 18.6 | 100% | 2.4 GB |
-| llamacpp:Qwen3.5-2B | 0.41s | 0.74s | 25.3 | 100% | 1.3 GB |
-| ollama:Llama 3.2-3B | 0.53s | 0.65s | 19.2 | 100% | 2.5 GB |
-| ollama:Qwen3-4B | 0.54s | 0.65s | 15.3 | 100% | 3.4 GB |
-| ollama:Ministral-3 3B | 0.63s | 0.70s | 19.6 | 100% | 4.8 GB |
-| ollama:Qwen3.5-2B | 1.05s | 1.32s | 22.7 | 100% | 3.5 GB |
-| ollama:Nemotron-3 Nano 4B | 1.28s | 2.21s | 15.8 | 100% | 5.2 GB |
-| ollama:Qwen3.5-4B | 1.72s | 2.33s | 11.4 | 100% | 6.1 GB |
+| llamacpp:Granite 3.3-2B | 0.09s | 0.19s | 25.6 | 100% | 1.5 GB |
+| ollama:Granite 3.3-2B | 0.23s | 0.30s | 25.8 | 100% | 1.8 GB |
+| ollama:Granite 4-3B | 0.37s | 0.46s | 18.6 | 100% | 2.4 GB |
+| llamacpp:Qwen3.5-2B | 0.42s | 0.74s | 25.3 | 100% | 1.3 GB |
+| ollama:Llama 3.2-3B | 0.53s | 0.62s | 19.2 | 100% | 2.5 GB |
+| ollama:Qwen3-4B | 0.54s | 0.62s | 15.4 | 100% | 3.4 GB |
+| ollama:Ministral-3 3B | 0.64s | 0.79s | 19.6 | 100% | 4.8 GB |
+| ollama:Qwen3.5-2B | 1.06s | 1.33s | 22.5 | 100% | 3.5 GB |
+| ollama:Nemotron-3 Nano 4B | 1.25s | 2.14s | 15.9 | 100% | 5.2 GB |
+| ollama:Qwen3.5-4B | 1.69s | 2.44s | 11.4 | 100% | 6.1 GB |
 
 Models that could not fully offload to GPU suffered 2-5x higher TTFT and are omitted. The default backend (Qwen3-4B via Ollama, **bold**) was selected for best accuracy and response quality. See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
 
