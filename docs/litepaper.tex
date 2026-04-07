@@ -212,7 +212,6 @@ llama.cpp & Granite 3.3-2B & 33/40 & 8,7,7,6,5 & Degrading; verbose for voice \\
   \item \textbf{Qwen3.5-2B} (via llama.cpp) was highly performant but qualitatively inferior to Qwen3-4B---making it appropriate where speed of response or hardware constraints are primary concerns. Similar errors manifested between runs, suggesting systematic biases in the model weights.
   \item \textbf{Llama 3.2-3B} showed strong accuracy in early runs but was inconsistent, with later runs producing evasive answers and factual errors. The variance makes it less reliable for unsupervised use.
   \item \textbf{Granite 3.3-2B} achieved remarkably low TTFT (0.09\,s) via llama.cpp but produced overly verbose responses unsuitable for a voice interface. Accuracy degraded across runs, with early hallucinations cascading errors through subsequent conversation turns.
-  \item Models that could not be fully offloaded to GPU (e.g., Qwen3.5-4B at 3.4\,GB) suffered from degraded throughput and elevated hallucination rates.
 \end{itemize}
 
 \noindent The system defaults to Qwen3.5-2B via llama.cpp for lowest latency, with Qwen3-4B via Ollama available as an alternative quality backend.
