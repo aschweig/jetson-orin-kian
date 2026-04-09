@@ -101,14 +101,19 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         ),
     )
 
+    # --- Scores table (no flubs) ---
     lines = [
-        r"\begin{tabular}{l|r|r|r|r|l}",
+        r"\begin{table}[h]",
+        r"\centering",
+        r"\small",
+        r"\begin{tabular}{l|r|r|r|r}",
         r"\toprule",
-        r"Engine & Err Avg & Err Max & Chatty & Poor Prose & Example flub \\",
+        r"Engine & Err Avg & Err Max & Chatty & Poor Prose \\",
         r"\midrule",
     ]
 
     plain_rows = []
+    flub_rows = []
     n_sample = None
     for engine in engines_sorted:
         name = DISPLAY_NAMES.get(engine, engine)
@@ -122,12 +127,13 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         poor_prose_avg = sum(d["poor_prose"] for d in s) / n
         flub = best_flubs.get(engine, "")
 
-        # Plain-text row for LLM prompt
-        if flub:
+        # Plain-text row for LLM prompt (ASCII-only flub)
+        flub_ascii = "".join(c if ord(c) < 128 else "*" for c in flub)
+        if flub_ascii:
             plain_rows.append(
                 f"{name:<35} {err_avg:>5.1f} {err_max:>5} "
                 f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  "
-                f'"{flub}"'
+                f'"{flub_ascii}"'
             )
         else:
             plain_rows.append(
@@ -135,32 +141,56 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
                 f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  ---"
             )
 
-        # LaTeX row
-        flub_tex = flub.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
+        # Scores row
+        name_tex = name.replace("_", r"\_")
+        lines.append(
+            f"{name_tex} & {err_avg:.1f} & {err_max} & "
+            f"{chatty_avg:.1f} & {poor_prose_avg:.1f} \\\\"
+        )
+
+        # Flub row (for second table) — strip non-ASCII to avoid pdflatex errors
+        flub_tex = "".join(c if ord(c) < 128 else "*" for c in flub)
+        flub_tex = flub_tex.replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
         if flub_tex:
             flub_tex = r"\textit{``" + flub_tex + r"''}"
         else:
             flub_tex = "---"
-        name_tex = name.replace("_", r"\_")
-        lines.append(
-            f"{name_tex} & {err_avg:.1f} & {err_max} & "
-            f"{chatty_avg:.1f} & {poor_prose_avg:.1f} & "
-            f"{flub_tex} \\\\"
-        )
+        flub_rows.append(f"{name_tex} & {flub_tex} \\\\")
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
 
-    # Attribution footnote
+    # Attribution footnote and caption
     evaluator_tex = evaluator.replace("_", r"\_")
-    lines.append(r"\vspace{2pt}")
     lines.append(
-        r"\noindent{\footnotesize Evaluated by "
-        + evaluator_tex
-        + f", {n_sample} conversations per engine."
-        + "}"
+        r"\caption{Qualitative response quality across "
+        + f"{n_sample} benchmark runs (8 prompts each). "
+        + r"All metrics are lower-is-better: Err = factual errors per conversation, "
+        + r"Chatty = verbose or repetitive responses (of 5), "
+        + r"Poor Prose = weak explanatory/story responses (of 3). "
+        + "Evaluated by " + evaluator_tex + ".}"
     )
+    lines.append(r"\label{tab:quality}")
+    lines.append(r"\end{table}")
 
+    # --- Flubs table ---
+    lines.append("")
+    lines.append(r"\begin{table}[h]")
+    lines.append(r"\centering")
+    lines.append(r"\small")
+    lines.append(r"\begin{tabular}{l|l}")
+    lines.append(r"\toprule")
+    lines.append(r"Engine & Representative flub \\")
+    lines.append(r"\midrule")
+    for row in flub_rows:
+        lines.append(row)
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\caption{Representative factual errors from qualitative evaluation.}")
+    lines.append(r"\label{tab:flubs}")
+    lines.append(r"\end{table}")
+
+    # --- Discussion (outside table environment) ---
     # Generate discussion via claude -p
     plain_header = (
         f"{'Engine':<35} {'ErrAvg':>6} {'ErrMax':>6} "
@@ -179,7 +209,8 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
             capture_output=True, text=True, timeout=120,
         )
         if result.returncode == 0 and result.stdout.strip():
-            discussion = result.stdout.strip()
+            # Strip non-ASCII from discussion to avoid pdflatex errors
+            discussion = "".join(c if ord(c) < 128 else "*" for c in result.stdout.strip())
         else:
             print("    WARNING: claude -p failed, using placeholder", file=sys.stderr)
             discussion = r"\textit{Discussion to be written.}"
@@ -188,8 +219,6 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         discussion = r"\textit{Discussion to be written.}"
 
     lines.append("")
-    lines.append(r"\vspace{6pt}")
-    lines.append(r"\noindent")
     lines.append(discussion)
 
     return "\n".join(lines)
