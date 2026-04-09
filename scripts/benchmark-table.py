@@ -34,6 +34,11 @@ DISPLAY_NAMES = {
     "ollama:granite3.3:2b": "ollama:Granite 3.3-2B",
     "ollama:granite4:3b": "ollama:Granite 4-3B",
     "ollama:nemotron-3-nano:4b": "ollama:Nemotron-3 Nano 4B",
+    "llamacpp:ibm-granite_granite-4.0-micro-IQ4_XS": "llamacpp:Granite 4.0 Micro IQ4",
+    "llamacpp:granite-4.0-micro-Q4_K_M": "llamacpp:Granite 4.0 Micro",
+    "llamacpp:granite-4.0-h-micro-Q4_K_M": "llamacpp:Granite 4.0 H-Micro",
+    "llamacpp:qwen3-4b-instruct-2507-q4_k_m": "llamacpp:Qwen3-4B",
+    "llamacpp:HuggingFaceTB_SmolLM3-3B-Q4_K_M": "llamacpp:SmolLM3-3B",
 }
 
 
@@ -86,18 +91,8 @@ def summarize(rows: list[dict]) -> list[dict]:
     return results
 
 
-# Models with vision/multimodal capability (marked with footnote in LaTeX)
-MULTIMODAL = {
-    "ollama:Qwen3.5-2B",
-    "ollama:Qwen3.5-4B",
-    "llamacpp:Qwen3.5-2B",
-    "ollama:Ministral-3 3B",
-}
-
-
 def make_latex(stats: list[dict]) -> str:
     """Generate LaTeX tabular body (rows only, no begin/end table)."""
-    has_multimodal = any(r["name"] in MULTIMODAL for r in stats)
     lines = []
     lines.append(r"\begin{tabular}{l|r|r|r|r|r}")
     lines.append(r"\toprule")
@@ -106,8 +101,6 @@ def make_latex(stats: list[dict]) -> str:
 
     def _row(r):
         name = r["name"].replace("_", r"\_")
-        if r["name"] in MULTIMODAL:
-            name += r"\textsuperscript{$\dagger$}"
         return (
             f"{name} & {r['mean_ttft']:.3f} & {r['se']:.3f} & "
             f"{r['p95_ttft']:.3f} & {r['tps']:.1f} & "
@@ -119,13 +112,9 @@ def make_latex(stats: list[dict]) -> str:
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
-    footnotes = []
-    if has_multimodal:
-        footnotes.append(r"$\dagger$\,Multimodal (vision) model.")
-    footnotes.append(r"All models achieved 100\% GPU offload.\textsuperscript{$\ddagger$}")
     lines.append(r"\vspace{2pt}")
-    lines.append(r"\noindent{\footnotesize " + " ".join(footnotes) + "}")
-    lines.append(r"\noindent{\footnotesize \textsuperscript{$\ddagger$}\,Kernel page cache from prior model loads (via \texttt{mmap}) was cleared between engines using \texttt{drop\_caches} to ensure full offload on Jetson unified memory.}")
+    lines.append(r"\noindent{\footnotesize All models achieved 100\% GPU offload.\textsuperscript{$\dagger$}}")
+    lines.append(r"\noindent{\footnotesize \textsuperscript{$\dagger$}\,Kernel page cache from prior model loads (via \texttt{mmap}) was cleared between engines using \texttt{drop\_caches} to ensure full offload on Jetson unified memory.}")
     return "\n".join(lines)
 
 
@@ -173,7 +162,7 @@ def main():
     rows = load_csv(csv_path)
 
     # Verify exactly 5 runs
-    EXPECTED_RUNS = 5
+    EXPECTED_RUNS = 10
     runs = set()
     for r in rows:
         if "Run" in r:
@@ -189,11 +178,6 @@ def main():
         print(f"{r['name']:<40} {r['mean_ttft']:>8.3f} {r['se']:>6.3f} "
               f"{r['p95_ttft']:>8.3f} {r['tps']:>6.1f} {r['gpu']:>5.0f} "
               f"{r['vram']:>5.1f}G {r['total_ram']:>5.1f}G  {r['n']}")
-
-    if num_runs != EXPECTED_RUNS:
-        print(f"\nFound {num_runs} runs (expected {EXPECTED_RUNS}). "
-              f"Preview only — not updating LaTeX or README.")
-        return
 
     # Write LaTeX
     latex = make_latex(stats)

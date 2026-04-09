@@ -32,6 +32,22 @@ else
     echo "Qwen3.5-2B GGUF already downloaded, skipping."
 fi
 
+# Granite 4.0 Micro GGUF for llama.cpp (~2.1GB)
+if [ ! -f granite-4.0-micro-Q4_K_M.gguf ]; then
+    echo "Downloading Granite 4.0 Micro Q4_K_M (~2.1GB)..."
+    wget -q --show-progress https://huggingface.co/ibm-granite/granite-4.0-micro-GGUF/resolve/main/granite-4.0-micro-Q4_K_M.gguf
+else
+    echo "Granite 4.0 Micro GGUF already downloaded, skipping."
+fi
+
+# Granite 4.0 H-Micro (hybrid SSM+attention) GGUF for llama.cpp (~1.9GB)
+if [ ! -f granite-4.0-h-micro-Q4_K_M.gguf ]; then
+    echo "Downloading Granite 4.0 H-Micro Q4_K_M (~1.9GB)..."
+    wget -q --show-progress https://huggingface.co/ibm-granite/granite-4.0-h-micro-GGUF/resolve/main/granite-4.0-h-micro-Q4_K_M.gguf
+else
+    echo "Granite 4.0 H-Micro GGUF already downloaded, skipping."
+fi
+
 # Qwen3-4B via Ollama (default backend, ~2.7GB)
 if command -v ollama &>/dev/null; then
     echo "Pulling Qwen3-4B via Ollama..."

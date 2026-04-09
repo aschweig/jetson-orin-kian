@@ -3,8 +3,9 @@
 # with a Run column prepended.
 #
 # Usage:
-#   scripts/benchmark-all.sh          # 5 runs (default)
+#   scripts/benchmark-all.sh          # 10 runs (default)
 #   scripts/benchmark-all.sh 3        # 3 runs
+#   scripts/benchmark-all.sh 2 9      # 2 runs, starting at run 9 (appends to existing CSV)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,17 +14,23 @@ UNLOAD="$SCRIPT_DIR/unload-ollama.sh"
 BENCHMARK="$SCRIPT_DIR/benchmark-llm.py"
 OUTFILE="$PROJECT_ROOT/benchmark-results-all.csv"
 
-RUNS="${1:-5}"
+RUNS="${1:-10}"
+START_RUN="${2:-1}"
 
-echo "Running benchmark $RUNS times → $OUTFILE"
+if [ "$START_RUN" -gt 1 ] && [ -f "$OUTFILE" ]; then
+    echo "Appending runs $START_RUN..$((START_RUN + RUNS - 1)) to $OUTFILE"
+else
+    echo "Running benchmark $RUNS times → $OUTFILE"
+    echo "Run,Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB" > "$OUTFILE"
+    START_RUN=1
+fi
 
-# Write CSV header
-echo "Run,Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB" > "$OUTFILE"
+END_RUN=$((START_RUN + RUNS - 1))
 
-for run in $(seq 1 "$RUNS"); do
+for run in $(seq "$START_RUN" "$END_RUN"); do
     echo ""
     echo "============================================================"
-    echo "  Run $run / $RUNS"
+    echo "  Run $run / $END_RUN"
     echo "============================================================"
 
     # Clean GPU state before each run

@@ -9,7 +9,8 @@ mkdir -p "$MODELS_DIR"
 declare -A gguf_models=(
     ["Qwen3-4B-Q4_K_M.gguf"]="https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
     ["granite-3.3-2b-instruct-Q4_K_M.gguf"]="https://huggingface.co/ibm-granite/granite-3.3-2b-instruct-GGUF/resolve/main/granite-3.3-2b-instruct-Q4_K_M.gguf"
-    ["Qwen3.5-4B-IQ4_XS.gguf"]="https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/main/Qwen_Qwen3.5-4B-IQ4_XS.gguf"
+    ["granite-4.0-micro-Q4_K_M.gguf"]="https://huggingface.co/ibm-granite/granite-4.0-micro-GGUF/resolve/main/granite-4.0-micro-Q4_K_M.gguf"
+    ["granite-4.0-h-micro-Q4_K_M.gguf"]="https://huggingface.co/ibm-granite/granite-4.0-h-micro-GGUF/resolve/main/granite-4.0-h-micro-Q4_K_M.gguf"
 )
 
 for file in "${!gguf_models[@]}"; do
@@ -26,7 +27,6 @@ done
 models=(
     qwen3.5:2b-q4_K_M
     qwen3:4b-q4_K_M
-    qwen3.5:4b-q4_K_M
     llama3.2:3b-instruct-q4_K_M
     ministral-3:3b
     granite3.3:2b

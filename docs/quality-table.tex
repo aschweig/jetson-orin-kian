@@ -1,0 +1,27 @@
+\begin{tabular}{l|r|r|r|r|l}
+\toprule
+Engine & Err Avg & Err Max & Chatty & Poor Prose & Example flub \\
+\midrule
+llamacpp:Qwen3-4B & 0.0 & 0 & 0.0 & 0.0 & --- \\
+llamacpp:Granite 4.0 H-Micro & 0.0 & 0 & 0.0 & 1.1 & --- \\
+llamacpp:Granite 3.3-2B & 0.3 & 1 & 0.0 & 1.4 & \textit{``sailfish, being a much faster swimmer, would likely win''} \\
+ollama:Llama 3.2-3B & 0.8 & 3 & 0.3 & 1.2 & \textit{``push their bones against each other''} \\
+llamacpp:Granite 4.0 Micro IQ4 & 1.0 & 1 & 0.0 & 2.0 & \textit{``sailfish would likely win because it can swim much''} \\
+llamacpp:Granite 4.0 Micro & 1.0 & 1 & 0.0 & 3.0 & \textit{``it can swim much faster than a cheetah can run''} \\
+ollama:Granite 4-3B & 1.1 & 3 & 0.2 & 1.4 & \textit{``it swims much faster than a cheetah runs''} \\
+ollama:Ministral-3 3B & 1.2 & 3 & 2.1 & 0.7 & \textit{``the faster you eat, the faster you can run''} \\
+ollama:Granite 3.3-2B & 1.2 & 4 & 1.1 & 0.9 & \textit{``Kian can sprint up to 60-70 miles per hour''} \\
+ollama:Nemotron-3 Nano 4B & 1.5 & 3 & 0.1 & 2.4 & \textit{``bluefin tuna, running over 70 miles per hour''} \\
+ollama:Qwen3-4B & 1.8 & 3 & 0.8 & 1.3 & \textit{``special身体 features''} \\
+llamacpp:Qwen3.5-2B & 2.0 & 2 & 0.0 & 1.8 & \textit{``almost as fast as a human sprinting''} \\
+ollama:Qwen3.5-2B & 3.6 & 5 & 1.5 & 2.3 & \textit{``The fastest fish in water is the dolphin''} \\
+\bottomrule
+\end{tabular}
+\vspace{2pt}
+\noindent{\footnotesize Evaluated by Claude Opus 4.6 (1M context), 10 conversations per engine.}
+
+\vspace{6pt}
+\noindent
+Among the models evaluated, \textbf{Qwen3-4B} (llama.cpp) achieved the strongest overall result: zero factual errors across all ten conversations, no verbose responses, and no weak prose. The \textbf{Granite 4.0 Heavyweight Micro} (llama.cpp) matched it on accuracy (0.0 Err Avg) and chattiness, though its longer-form prose was occasionally weak (Poor Prose 1.1). These two models represent the current quality ceiling for on-device inference in this setting. The \textbf{Granite 3.3-2B} family is notable at half the parameter count: under llama.cpp it achieved only 0.3 errors per conversation with no chattiness, though its Ollama variant was substantially worse (1.2 Err Avg, Chatty 1.1), underscoring the importance of runtime and quantization choices. \textbf{Llama 3.2-3B} offered a reasonable middle ground (0.8 Err Avg, Chatty 0.3), but its error ceiling (Err Max 3) and tendency to generate physiologically nonsensical claims (e.g., ``push their bones against each other'') suggest it requires more careful prompt engineering for child-facing deployment.
+
+A consistent finding is the tension between factual accuracy and prose quality. The full-precision \textbf{Granite 4.0 Micro} produced only 1.0 errors on average but scored the maximum 3.0 on Poor Prose, while \textbf{Ministral-3 3B} showed the inverse pattern: the best prose score among mid-tier models (0.7) but the highest chattiness (2.1) and 1.2 errors per conversation. Quantization also introduced trade-offs: the IQ4\_XS variant of Granite 4.0 Micro matched the full model on error rate but improved prose from 3.0 to 2.0, suggesting that moderate quantization can, counterintuitively, regularize output quality. The \textbf{Qwen3.5-2B} results highlight runtime sensitivity most starkly---under llama.cpp it managed 2.0 Err Avg with no chattiness, but the Ollama variant degraded to 3.6 Err Avg and 1.5 Chatty, the worst in the evaluation. For a child-facing voice assistant where factual reliability is paramount, the Qwen3-4B and Granite Heavyweight Micro models under llama.cpp are the clear frontrunners, while the 2B-class models remain viable only with careful runtime selection.

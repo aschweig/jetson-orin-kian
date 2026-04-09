@@ -28,8 +28,8 @@ LOG_DIR = PROJECT_ROOT / "benchmark-logs"
 SYSTEM_PROMPT = (
     "You are Kian, a helpful educating cartoon animal -- but it's a secret. "
     "You are talking to an imaginative and curious child in grade 3. "
-    "Keep responses concise and conversational. Your output "
-    "will be spoken aloud, so never use markdown, asterisks, bullet points, emojis, "
+    "Unless you are explaining, teaching, or telling a story, reply in one or two short sentences. "
+    "Your output will be spoken aloud, so never use markdown, asterisks, bullet points, emojis, "
     "or any formatting. Use plain spoken English only."
 )
 
@@ -256,6 +256,10 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
 LLAMACPP_MODELS = {
     "Qwen3.5-2B-Q4_K_M": {"file": "Qwen3.5-2B-Q4_K_M.gguf"},
     "granite-3.3-2b-instruct-Q4_K_M": {"file": "granite-3.3-2b-instruct-Q4_K_M.gguf"},
+    "ibm-granite_granite-4.0-micro-IQ4_XS": {"file": "ibm-granite_granite-4.0-micro-IQ4_XS.gguf"},
+    "granite-4.0-micro-Q4_K_M": {"file": "granite-4.0-micro-Q4_K_M.gguf"},
+    "granite-4.0-h-micro-Q4_K_M": {"file": "granite-4.0-h-micro-Q4_K_M.gguf"},
+    "qwen3-4b-instruct-2507-q4_k_m": {"file": "qwen3-4b-instruct-2507-q4_k_m.gguf"},
 }
 
 
@@ -399,7 +403,6 @@ ALL_ENGINES = [
     # Ollama first — reliable unload via API between models
     "ollama:qwen3.5:2b-q4_K_M",
     "ollama:qwen3:4b-q4_K_M",
-    "ollama:qwen3.5:4b-q4_K_M",
     "ollama:llama3.2:3b-instruct-q4_K_M",
     "ollama:ministral-3:3b",
     "ollama:granite3.3:2b",
@@ -408,6 +411,10 @@ ALL_ENGINES = [
     # llamacpp last — CUDA memory not reliably freed on Jetson after exit
     "llamacpp:Qwen3.5-2B-Q4_K_M",
     "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
+    "llamacpp:ibm-granite_granite-4.0-micro-IQ4_XS",
+    "llamacpp:granite-4.0-micro-Q4_K_M",
+    "llamacpp:granite-4.0-h-micro-Q4_K_M",
+    "llamacpp:qwen3-4b-instruct-2507-q4_k_m",
 ]
 
 
