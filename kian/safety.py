@@ -1,57 +1,81 @@
-"""LLM-based content safety classifier using a small model via llama-cpp-python.
+"""Content safety classifier using Granite Guardian HAP 38M (ONNX).
 
-Runs entirely on CPU to avoid competing with the primary LLM for GPU memory.
+Uses a purpose-built 38M-parameter hate/abuse/profanity detector instead of
+a general-purpose LLM.  Runs entirely on CPU via ONNX Runtime — no GPU memory
+needed, no CUDA context created.
+
+Model: ibm-granite/granite-guardian-hap-38m
+ONNX:  KantiArumilli/granite-guardian-hap-38m-onnx (INT8 quantized)
 """
 
 from pathlib import Path
 
-from llama_cpp import Llama
+import numpy as np
+import onnxruntime
+from tokenizers import Tokenizer
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = PROJECT_ROOT / "models" / "qwen2.5-0.5b-instruct-q2_k.gguf"
+_MODEL_DIR = PROJECT_ROOT / "models" / "granite-guardian-hap"
+_ONNX_PATH = _MODEL_DIR / "guardian_model_quantized.onnx"
+_TOKENIZER_PATH = _MODEL_DIR / "tokenizer.json"
 
-SYSTEM_PROMPT = (
-    "You are a content safety filter for a childrens educational assistant. "
-    "Flag ANY of the following: profanity, insults, violence, weapons, "
-    "sexual content, self harm, drugs, or adult topics. "
-    "Reply SAFE or UNSAFE only."
-)
+_session: onnxruntime.InferenceSession | None = None
+_tokenizer: Tokenizer | None = None
 
-_llm: Llama | None = None
+# Confidence threshold: flag as unsafe when P(toxic) >= this value.
+_THRESHOLD = 0.5
 
 
-def _get_llm() -> Llama | None:
-    global _llm
-    if _llm is not None:
-        return _llm
-    if not MODEL_PATH.exists():
+def _get_model() -> tuple[onnxruntime.InferenceSession, Tokenizer] | None:
+    global _session, _tokenizer
+    if _session is not None:
+        return _session, _tokenizer
+    if not _ONNX_PATH.exists() or not _TOKENIZER_PATH.exists():
         return None
-    _llm = Llama(
-        model_path=str(MODEL_PATH),
-        n_ctx=512,
-        n_gpu_layers=0,  # CPU only
-        verbose=False,
+
+    opts = onnxruntime.SessionOptions()
+    opts.inter_op_num_threads = 2
+    opts.intra_op_num_threads = 2
+    _session = onnxruntime.InferenceSession(
+        str(_ONNX_PATH),
+        sess_options=opts,
+        providers=["CPUExecutionProvider"],
     )
-    return _llm
+    _tokenizer = Tokenizer.from_file(str(_TOKENIZER_PATH))
+    _tokenizer.enable_truncation(max_length=128)
+    _tokenizer.enable_padding(length=128)
+    return _session, _tokenizer
+
+
+def load() -> None:
+    """Eagerly load the safety model at startup."""
+    _get_model()
 
 
 def classify(text: str) -> bool:
     """Return True if text is safe, False if unsafe."""
-    llm = _get_llm()
-    if llm is None:
+    pair = _get_model()
+    if pair is None:
         return True  # fail open if model unavailable
 
-    resp = llm.create_chat_completion(
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-        max_tokens=4,
-    )
-    result = resp["choices"][0]["message"]["content"].strip().upper()
-    return "UNSAFE" not in result
+    session, tokenizer = pair
+    enc = tokenizer.encode(text)
+    input_ids = np.array([enc.ids], dtype=np.int64)
+    attention_mask = np.array([enc.attention_mask], dtype=np.int64)
+
+    logits = session.run(None, {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+    })[0]  # shape: [1, 2]
+
+    # softmax → P(toxic)
+    exp = np.exp(logits - logits.max(axis=1, keepdims=True))
+    probs = exp / exp.sum(axis=1, keepdims=True)
+    toxic_prob = float(probs[0, 1])
+
+    return toxic_prob < _THRESHOLD
 
 
 def available() -> bool:
     """Check if the safety model is available."""
-    return MODEL_PATH.exists()
+    return _ONNX_PATH.exists() and _TOKENIZER_PATH.exists()

@@ -13,6 +13,7 @@ dependencies = [
     "numpy>=1.24",
     "jetson-gpio>=2.1.12",
     "pulsectl>=24.12.0",
+    "tokenizers>=0.15",
 ]
 
 [build-system]

@@ -48,12 +48,12 @@ else
     echo "Granite 4.0 H-Micro GGUF already downloaded, skipping."
 fi
 
-# Qwen3-4B GGUF for llama.cpp (default backend, ~2.5GB)
-if [ ! -f Qwen3-4B-Q4_K_M.gguf ]; then
-    echo "Downloading Qwen3-4B Q4_K_M (~2.5GB)..."
-    wget -q --show-progress https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+# Qwen3-4B Instruct 2507 GGUF for llama.cpp (default backend, ~2.5GB)
+if [ ! -f qwen3-4b-instruct-2507-q4_k_m.gguf ]; then
+    echo "Downloading Qwen3-4B Instruct 2507 Q4_K_M (~2.5GB)..."
+    wget -q --show-progress https://huggingface.co/enacimie/Qwen3-4B-Instruct-2507-Q4_K_M-GGUF/resolve/main/qwen3-4b-instruct-2507-q4_k_m.gguf
 else
-    echo "Qwen3-4B GGUF already downloaded, skipping."
+    echo "Qwen3-4B Instruct 2507 GGUF already downloaded, skipping."
 fi
 
 # Qwen3-4B via Ollama (alternative backend, ~2.7GB)
@@ -65,12 +65,16 @@ else
     echo "  Install with: curl -fsSL https://ollama.com/install.sh | sh"
 fi
 
-# Qwen2.5-0.5B Instruct GGUF for safety classifier (~415MB, CPU-only)
-if [ ! -f qwen2.5-0.5b-instruct-q2_k.gguf ]; then
-    echo "Downloading Qwen2.5-0.5B Instruct Q2_K (~415MB)..."
-    wget -q --show-progress https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q2_k.gguf
+# Granite Guardian HAP 38M ONNX for safety classifier (~126MB, CPU-only)
+mkdir -p granite-guardian-hap
+if [ ! -f granite-guardian-hap/guardian_model_quantized.onnx ]; then
+    echo "Downloading Granite Guardian HAP 38M (quantized ONNX, ~126MB)..."
+    wget -q --show-progress -O granite-guardian-hap/guardian_model_quantized.onnx \
+        https://huggingface.co/KantiArumilli/granite-guardian-hap-38m-onnx/resolve/main/guardian_model_quantized.onnx
+    wget -q --show-progress -O granite-guardian-hap/tokenizer.json \
+        https://huggingface.co/KantiArumilli/granite-guardian-hap-38m-onnx/resolve/main/tokenizer/tokenizer.json
 else
-    echo "Qwen2.5-0.5B Instruct GGUF already downloaded, skipping."
+    echo "Granite Guardian HAP already downloaded, skipping."
 fi
 
 # Whisper (auto-downloaded on first run by faster-whisper)

@@ -14,13 +14,14 @@ from kian.llm import system_prompt, update_system_prompt
 _SENTINEL = object()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODEL = "Qwen3-4B-Q4_K_M.gguf"
+DEFAULT_MODEL = "qwen3-4b-instruct-2507-q4_k_m.gguf"
 
 
 class LlamaLLM:
     def __init__(self, model_path: str | None = None, n_gpu_layers: int = -1):
         if model_path is None:
             model_path = str(PROJECT_ROOT / "models" / DEFAULT_MODEL)
+        self.model_name = Path(model_path).name
         self._llm = Llama(
             model_path=model_path,
             n_ctx=2048,

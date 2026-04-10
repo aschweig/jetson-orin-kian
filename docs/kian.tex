@@ -50,7 +50,7 @@ Kian is structured as an asynchronous pipeline of five stages, all running on-de
 \begin{enumerate}[nosep]
   \item \textbf{Voice Activity Detection (VAD).} \texttt{Silero VAD}~\cite{silero_vad} (ONNX, ${\sim}2$\,MB) monitors the microphone stream at 48\,kHz, downsampled to 16\,kHz for inference. Speech segments are extracted with a 1.2\,s silence threshold. A 30-second maximum prevents unbounded memory growth from sustained noise.
   \item \textbf{Speech-to-Text (STT).} \texttt{Faster-whisper}~\cite{faster_whisper}, an optimized reimplementation of Whisper~\cite{radford2023whisper}, with the \texttt{base.en} model transcribes detected speech segments using int8 quantization.
-  \item \textbf{Language Model (LLM).} Qwen3-4B~\cite{yang2025qwen3}, quantized to Q4\_K\_M (4-bit), runs via llama.cpp~\cite{llamacpp_python} with full GPU offload. The 2048-token context window is managed by dropping oldest conversation turns when history exceeds 1500 tokens. An Ollama~\cite{ollama} backend is also supported as an alternative runtime.
+  \item \textbf{Language Model (LLM).} Qwen3-4B\footnote{Specifically the Qwen3-4B-Instruct-2507 variant, which uses non-thinking mode only and does not generate \texttt{<think>} blocks.}~\cite{yang2025qwen3}, quantized to Q4\_K\_M (4-bit), runs via llama.cpp~\cite{llamacpp_python} with full GPU offload. The 2048-token context window is managed by dropping oldest conversation turns when history exceeds 1500 tokens. An Ollama~\cite{ollama} backend is also supported as an alternative runtime.
   \item \textbf{Content Filtering.} A streaming n-gram detector checks each token as it is generated. On match, generation halts immediately and the conversation context is reset.
   \item \textbf{Text-to-Speech (TTS).} Piper TTS~\cite{piper_tts} synthesizes speech from text fragments, streamed to a persistent ALSA output to avoid underruns. A LaTeX-to-speech post-processor converts mathematical notation before synthesis.
 \end{enumerate}
@@ -76,7 +76,7 @@ Component & Memory \\
 \midrule
 OS / system (headless) & $\sim$1.0\,GB \\
 llama.cpp + LLM (Qwen3-4B Q4\_K\_M) & $\sim$2.5\,GB \\
-Safety classifier (CPU) & $\sim$0.4\,GB \\
+Safety classifier (CPU) & $\sim$0.1\,GB \\
 STT (Whisper base.en) & $\sim$0.2\,GB \\
 VAD (Silero) + TTS (Piper) & $\sim$0.2\,GB \\
 KV cache (2K context) & $\sim$0.3\,GB \\
@@ -107,10 +107,10 @@ Children's content filtering requires multiple layers, since no single mechanism
 \begin{enumerate}[nosep]
   \item \textbf{System prompt.} The LLM is instructed to behave as an educational cartoon animal speaking to a child at a specific grade level. This biases generation toward age-appropriate content.
   \item \textbf{Streaming token filter.} A sliding-window n-gram matcher checks every token against a curated list of 100+ prohibited words and phrases spanning profanity, slurs, sexual content, violence, drug references, and adult/gambling websites. Detection is immediate---the response is discarded, the context is reset, and a neutral deflection is spoken.
-  \item \textbf{LLM safety classifier.} Each complete sentence is classified by a separate small language model (Qwen2.5-0.5B~\cite{yang2024qwen25}, Q2\_K quantization, running on CPU) before it is sent to the TTS pipeline. The classifier is prompted to flag profanity, insults, violence, weapons, sexual content, self-harm, drugs, and adult topics, responding with a single SAFE or UNSAFE token. Unsafe sentences halt generation and reset the conversation context. Running on CPU avoids contention with the primary LLM on the GPU; inference takes approximately 90\,ms per sentence. A throttle mechanism ensures safety checks are interleaved with TTS playback rather than executed in bursts.
+  \item \textbf{Neural safety classifier.} Each complete sentence is classified by Granite Guardian HAP-38M~\cite{padhi2024graniteguardian}, a 38.5M-parameter RoBERTa-based binary toxicity detector purpose-built for hate, abuse, and profanity detection. The model runs as a quantized INT8 ONNX graph on CPU, avoiding GPU memory contention with the primary LLM. Inference takes approximately 30\,ms per sentence. Unsafe sentences halt generation and reset the conversation context. A throttle mechanism ensures safety checks are interleaved with TTS playback rather than executed in bursts.
 \end{enumerate}
 
-\noindent The n-gram filter list is maintained as a plain text file, making it straightforward for educators and parents to review and extend. The LLM classifier provides contextual understanding that rule-based filters cannot---for example, detecting instructions for harmful activities composed entirely of individually benign words.
+\noindent The n-gram filter list is maintained as a plain text file, making it straightforward for educators and parents to review and extend. The neural classifier provides contextual understanding that rule-based filters cannot---for example, detecting abusive language composed entirely of individually benign words.
 
 In practice, the n-gram filter reliably catches direct profanity and known slurs, while the LLM classifier catches subtler cases such as violent scenarios described in clinical language. The pipeline is weakest against indirect elicitation---a child who asks ``what words are bad?'' or requests a story with violent themes using age-appropriate vocabulary may receive content that neither filter flags. Misspellings and phonetic substitutions (e.g., ``fck'') can also evade the n-gram matcher. The system prompt biases the LLM away from these outputs, but a determined child can find gaps. We consider this an inherent limitation of rule-based and small-model classifiers operating without human oversight.
 
@@ -222,7 +222,7 @@ Table~\ref{tab:perf} summarizes latency and throughput; Table~\ref{tab:quality} 
 
 \begin{itemize}[nosep]
   \item \textbf{Language support} is currently English-only across all pipeline stages.
-  \item \textbf{Content filtering} combines rule-based n-gram matching with a small LLM safety classifier, but neither mechanism can guarantee detection of novel circumventions or subtly inappropriate content. Adversarial probing by children is a realistic threat model.
+  \item \textbf{Content filtering} combines rule-based n-gram matching with a neural toxicity classifier, but neither mechanism can guarantee detection of novel circumventions or subtly inappropriate content. Adversarial probing by children is a realistic threat model.
   \item \textbf{Mathematical rendering} handles standard LaTeX but not all edge cases (e.g., matrices, piecewise functions, or deeply nested expressions).
   \item \textbf{No visual output} means that some mathematical concepts (geometry, graphs) are difficult to convey through speech alone.
 \end{itemize}

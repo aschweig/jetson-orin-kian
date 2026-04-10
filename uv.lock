@@ -347,6 +347,7 @@ dependencies = [
     { name = "piper-tts" },
     { name = "pulsectl" },
     { name = "sounddevice" },
+    { name = "tokenizers" },
 ]
 
 [package.metadata]
@@ -359,6 +360,7 @@ requires-dist = [
     { name = "piper-tts", specifier = ">=1.4" },
     { name = "pulsectl", specifier = ">=24.12.0" },
     { name = "sounddevice", specifier = ">=0.5" },
+    { name = "tokenizers", specifier = ">=0.15" },
 ]
 
 [[package]]

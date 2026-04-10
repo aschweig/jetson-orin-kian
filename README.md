@@ -123,8 +123,8 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    - **Piper TTS** voice (`en_US-lessac-medium`, ~75MB) into `models/`
    - **Qwen3.5-2B** GGUF (`Q4_K_M`, ~1.6GB) into `models/` (llamacpp fallback)
    - **Qwen3-4B** via Ollama (`Q4_K_M`, ~2.7GB)
-   - **Qwen2.5-0.5B** GGUF (`Q2_K`, ~415MB) into `models/` (safety classifier)
-   - **Whisper** (`tiny`, ~75MB) is downloaded automatically on first run by faster-whisper
+   - **Granite Guardian HAP 38M** ONNX (quantized INT8, ~126MB) into `models/granite-guardian-hap/` (safety classifier)
+   - **Whisper** (`base.en`, ~150MB) is downloaded automatically on first run by faster-whisper
 
 5. **Rebuild llama-cpp-python with CUDA** (only needed for `--backend llamacpp`):
 
@@ -168,7 +168,7 @@ kian/
 │   ├── llm.py          # backend selection + shared interface
 │   ├── llm_llamacpp.py # llama.cpp backend (Qwen3.5-2B)
 │   ├── llm_ollama.py   # Ollama backend (Qwen3-4B)
-│   ├── safety.py       # LLM-based content safety classifier
+│   ├── safety.py       # ONNX content safety classifier (Granite Guardian HAP)
 │   └── tts.py          # text-to-speech + playback thread (Piper)
 ├── models/             # model files (not checked in)
 ├── scripts/
@@ -262,8 +262,8 @@ Running headless (no desktop environment) frees 1--1.3 GB of RAM for GPU offload
 |-----------|-----|
 | OS/system (headless) | ~1.0 GB |
 | Ollama + Qwen3-4B Q4_K_M | ~3.4 GB |
-| Safety classifier (CPU) | ~0.4 GB |
-| Whisper tiny | ~0.1 GB |
+| Safety classifier (CPU) | ~0.1 GB |
+| Whisper base.en | ~0.2 GB |
 | Piper TTS + VAD | ~0.2 GB |
 | KV cache (2K context) | ~0.3 GB |
-| **Headroom** | **~2.4 GB** |
+| **Headroom** | **~2.6 GB** |

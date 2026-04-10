@@ -230,8 +230,10 @@ async def _stream_response(llm, tts, user_text, shutdown):
                 await asyncio.sleep(0.1)
             if bargein.is_set():
                 return True  # abort silently
+            print(f"[SAFETY] classifying: {text}")
+            t_safety = time.monotonic()
             safe = await loop.run_in_executor(None, safety.classify, text)
-            print(f"[SAFETY] {text}  [{'SAFE' if safe else 'UNSAFE'}]")
+            print(f"[SAFETY {time.monotonic() - t_safety:.1f}s] {'SAFE' if safe else 'UNSAFE'}")
             if not safe:
                 print("[SAFETY] blocked")
                 safety_hit = True
@@ -245,6 +247,13 @@ async def _stream_response(llm, tts, user_text, shutdown):
             if first_token:
                 print(f"[LLM {time.monotonic() - t_llm:.1f}s] first token")
                 first_token = False
+                t_last_token = time.monotonic()
+            else:
+                now = time.monotonic()
+                gap = now - t_last_token
+                if gap > 2.0:
+                    print(f"[LLM] token gap {gap:.1f}s")
+                t_last_token = now
 
             if naughty.check(token):
                 print("[NAUGHTY] blocked")
@@ -295,11 +304,16 @@ async def _stream_response(llm, tts, user_text, shutdown):
             if sentence is None:
                 break
 
-            print(f"[TTS] {sentence}")
+            print(f"[TTS] speaking: {sentence}")
+            t_tts = time.monotonic()
             await tts.speak(sentence, tail_silence=PAUSE_SILENCE_S)
+            print(f"[TTS {time.monotonic() - t_tts:.1f}s] speak done")
+            print("[TTS] draining...")
             tts.drain()
+            print("[TTS] drain done")
 
             # Listen for barge-in in the inter-sentence gap
+            print("[RMS] listening...")
             rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S, 0.05)
             print(f"[RMS {rms:.3f}]")
             if rms >= BARGEIN_THRESHOLD:
@@ -343,6 +357,7 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
     test_control_phrases()
 
     print("Loading models...")
+    safety.load()
     vad = VADStream()
     stt = STT()
     llm = create_llm(backend=backend, model=model)
@@ -371,7 +386,8 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
     print("    - \"I'm in grade N\"")
     print()
     grade_str = llm_mod._GRADE_NAMES.get(llm_mod.child_grade, f"grade {llm_mod.child_grade}")
-    print(f"Ready. I am {llm_mod.assistant_name}, talking to a child in {grade_str}.")
+    model_name = getattr(llm, "model_name", None) or "(unknown)"
+    print(f"Ready. I am {llm_mod.assistant_name}, talking to a child in {grade_str}. LLM: {model_name}")
     quit_task = None
     if sys.stdin.isatty():
         print("(press Q + Enter to quit)")
