@@ -230,12 +230,13 @@ async def _stream_response(llm, tts, user_text, shutdown):
                 await asyncio.sleep(0.1)
             if bargein.is_set():
                 return True  # abort silently
-            print(f"[SAFETY] classifying: {text}")
             t_safety = time.monotonic()
             safe = await loop.run_in_executor(None, safety.classify, text)
-            print(f"[SAFETY {time.monotonic() - t_safety:.1f}s] {'SAFE' if safe else 'UNSAFE'}")
-            if not safe:
-                print("[SAFETY] blocked")
+            elapsed = time.monotonic() - t_safety
+            if safe:
+                print(f"[SAFETY {elapsed:.1f}s] SAFE")
+            else:
+                print(f"[SAFETY {elapsed:.1f}s] UNSAFE -- {text}")
                 safety_hit = True
                 return False
             await sentence_q.put(text)
@@ -304,18 +305,12 @@ async def _stream_response(llm, tts, user_text, shutdown):
             if sentence is None:
                 break
 
-            print(f"[TTS] speaking: {sentence}")
-            t_tts = time.monotonic()
+            print(f"[TTS] {sentence}")
             await tts.speak(sentence, tail_silence=PAUSE_SILENCE_S)
-            print(f"[TTS {time.monotonic() - t_tts:.1f}s] speak done")
-            print("[TTS] draining...")
             tts.drain()
-            print("[TTS] drain done")
 
             # Listen for barge-in in the inter-sentence gap
-            print("[RMS] listening...")
             rms = await loop.run_in_executor(None, mic_rms, BARGEIN_LISTEN_S, 0.05)
-            print(f"[RMS {rms:.3f}]")
             if rms >= BARGEIN_THRESHOLD:
                 print("[INTERRUPTED]")
                 tts.flush()
