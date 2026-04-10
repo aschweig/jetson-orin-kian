@@ -14,7 +14,7 @@ from kian.llm import system_prompt, update_system_prompt
 _SENTINEL = object()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODEL = "Qwen3.5-2B-Q4_K_M.gguf"
+DEFAULT_MODEL = "Qwen3-4B-Q4_K_M.gguf"
 
 
 class LlamaLLM:

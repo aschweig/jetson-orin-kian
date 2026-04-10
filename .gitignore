@@ -24,10 +24,15 @@ settings.json
 # OS
 .DS_Store
 
-# Latex
+# LaTeX
 *.aux
+*.bbl
+*.blg
 *.dvi
-*.pdf
+*.fdb_latexmk
+*.fls
 *.log
 *.out
+*.pdf
+!docs/kian.pdf
 

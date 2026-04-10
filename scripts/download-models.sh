@@ -48,7 +48,15 @@ else
     echo "Granite 4.0 H-Micro GGUF already downloaded, skipping."
 fi
 
-# Qwen3-4B via Ollama (default backend, ~2.7GB)
+# Qwen3-4B GGUF for llama.cpp (default backend, ~2.5GB)
+if [ ! -f Qwen3-4B-Q4_K_M.gguf ]; then
+    echo "Downloading Qwen3-4B Q4_K_M (~2.5GB)..."
+    wget -q --show-progress https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+else
+    echo "Qwen3-4B GGUF already downloaded, skipping."
+fi
+
+# Qwen3-4B via Ollama (alternative backend, ~2.7GB)
 if command -v ollama &>/dev/null; then
     echo "Pulling Qwen3-4B via Ollama..."
     ollama pull qwen3:4b-q4_K_M
