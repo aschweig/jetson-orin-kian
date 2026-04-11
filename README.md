@@ -10,8 +10,8 @@ Two LLM backends:
 
 | Backend | Model | How it runs |
 |---------|-------|-------------|
-| `ollama` (default) | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
-| `llamacpp` | Qwen3.5-2B (GGUF) | In-process via llama-cpp-python |
+| `llamacpp` (default) | Qwen3-4B-Instruct-2507 (GGUF) | In-process via llama-cpp-python |
+| `ollama` | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
 
 All components run locally. No cloud APIs required.
 
@@ -22,7 +22,7 @@ All components run locally. No cloud APIs required.
 - [uv](https://docs.astral.sh/uv/) package manager
 - A microphone and speakers/headphones
 - ~4GB disk for models
-- [Ollama](https://ollama.com/) (required for the default backend)
+- [Ollama](https://ollama.com/) (only needed for `--backend ollama`)
 
 ## System Dependencies
 
@@ -104,7 +104,7 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    uv sync
    ```
 
-3. **Install Ollama** (default LLM backend):
+3. **Install Ollama** (optional, for `--backend ollama`):
 
    ```bash
    curl -fsSL https://ollama.com/install.sh | sh
@@ -121,19 +121,22 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    This downloads:
    - **Silero VAD** (~2.3MB) into `models/`
    - **Piper TTS** voice (`en_US-lessac-medium`, ~75MB) into `models/`
-   - **Qwen3.5-2B** GGUF (`Q4_K_M`, ~1.6GB) into `models/` (llamacpp fallback)
+   - **Qwen3-4B-Instruct-2507** GGUF (`Q4_K_M`, ~2.5GB) into `models/` (default llamacpp model)
+   - **Qwen3.5-2B** GGUF (`Q4_K_M`, ~1.6GB) into `models/`
+   - **Granite 4.0 Micro** GGUF (`Q4_K_M`, ~2.1GB) into `models/`
+   - **Granite 4.0 H-Micro** GGUF (`Q4_K_M`, ~1.9GB) into `models/`
    - **Qwen3-4B** via Ollama (`Q4_K_M`, ~2.7GB)
    - **Granite Guardian HAP 38M** ONNX (quantized INT8, ~126MB) into `models/granite-guardian-hap/` (safety classifier)
    - **Whisper** (`base.en`, ~150MB) is downloaded automatically on first run by faster-whisper
 
-5. **Rebuild llama-cpp-python with CUDA** (only needed for `--backend llamacpp`):
+5. **Rebuild llama-cpp-python with CUDA** (needed for the default backend):
 
    ```bash
    CMAKE_ARGS="-DGGML_CUDA=on" uv pip install --force-reinstall --no-binary llama-cpp-python --no-cache llama-cpp-python
    ```
 
    This compiles llama.cpp from source with CUDA support. Takes several minutes.
-   Skip this if you only plan to use the default Ollama backend.
+   Skip this only if you plan to use `--backend ollama` exclusively.
 
 6. **Run:**
 
@@ -144,11 +147,11 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
 ## Usage
 
 ```bash
-# Default: Qwen3-4B via Ollama
+# Default: Qwen3-4B-Instruct-2507 via llama.cpp
 uv run kian
 
-# Qwen3.5-2B via llama.cpp (lower latency, smaller model)
-uv run kian --backend llamacpp
+# Qwen3-4B via Ollama
+uv run kian --backend ollama
 
 # Custom model with llama.cpp
 uv run kian --backend llamacpp --model models/some-other-model.gguf
@@ -166,7 +169,7 @@ kian/
 │   ├── stt.py          # speech-to-text (faster-whisper)
 │   ├── leds.py         # status LEDs via Jetson GPIO
 │   ├── llm.py          # backend selection + shared interface
-│   ├── llm_llamacpp.py # llama.cpp backend (Qwen3.5-2B)
+│   ├── llm_llamacpp.py # llama.cpp backend (Qwen3-4B-Instruct-2507)
 │   ├── llm_ollama.py   # Ollama backend (Qwen3-4B)
 │   ├── safety.py       # ONNX content safety classifier (Granite Guardian HAP)
 │   └── tts.py          # text-to-speech + playback thread (Piper)
@@ -251,7 +254,7 @@ Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization 
 | ollama:Nemotron-3 Nano 4B | 1.02s | 1.56s | 15.6 | 100% | 5.2 GB |
 | ollama:Qwen3.5-2B | 1.03s | 1.31s | 22.2 | 100% | 3.5 GB |
 
-The default backend (Qwen3-4B via Ollama, **bold**) was selected for best accuracy and response quality.
+The default backend is Qwen3-4B-Instruct-2507 via llama.cpp, selected for best latency and no external server dependency.
 See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
 
 ## Memory Budget (~8GB, headless)
@@ -261,9 +264,8 @@ Running headless (no desktop environment) frees 1--1.3 GB of RAM for GPU offload
 | Component | RAM |
 |-----------|-----|
 | OS/system (headless) | ~1.0 GB |
-| Ollama + Qwen3-4B Q4_K_M | ~3.4 GB |
+| llama.cpp + Qwen3-4B Q4_K_M | ~2.5 GB |
 | Safety classifier (CPU) | ~0.1 GB |
 | Whisper base.en | ~0.2 GB |
 | Piper TTS + VAD | ~0.2 GB |
 | KV cache (2K context) | ~0.3 GB |
-| **Headroom** | **~2.6 GB** |

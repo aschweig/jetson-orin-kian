@@ -5,7 +5,7 @@ Kian uses two independent systemd services:
 | Service | Scope | Purpose |
 |---|---|---|
 | `kian-gpio.service` | system | Configures GPIO pinmux at boot for LED access. Always enabled — pinmux resets every reboot. |
-| `kian.service` | user | Runs `setup-audio.sh` to configure PulseAudio, then starts Kian. Optionally enabled. |
+| `kian.service` | user | Runs Kian with audio device matching from `kian.env`. Optionally enabled. |
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Kian uses two independent systemd services:
 - Models downloaded (`./scripts/download-models.sh`)
 - Wiki database built (`uv run python scripts/build-wiki-db.py`) — downloads Simple Wikipedia (~350 MB) and builds an FTS5 index (~170 MB)
 - USB audio device(s) connected
-- [Ollama](https://ollama.com/) installed with model pulled (required for the default backend):
+- [Ollama](https://ollama.com/) installed with model pulled (only needed for `--backend ollama`):
   ```bash
   curl -fsSL https://ollama.com/install.sh | sh
   ollama pull qwen3:4b-q4_K_M
@@ -44,6 +44,16 @@ To apply immediately without rebooting:
 ```bash
 sudo systemctl start kian-gpio
 ```
+
+## Memory Tuning (optional, Jetson only)
+
+On Jetson's unified memory, page cache from loading model files competes with GPU allocations. This installs sysctl settings that make the kernel reclaim page cache more aggressively:
+
+```bash
+sudo scripts/install-sysctl.sh
+```
+
+This is optional but recommended. Without it, GPU memory allocation can fail if the page cache is bloated from prior file I/O.
 
 ## Install Kian Service
 
