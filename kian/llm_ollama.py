@@ -54,7 +54,7 @@ class OllamaLLM:
         """Stream LLM response tokens via Ollama's native API."""
         self._history.append({"role": "user", "content": user_text})
         self._trim_history()
-        update_system_prompt(self._history)
+        update_system_prompt(self._history, user_text=user_text, has_wiki=bool(self._wiki_context))
         if self._wiki_context:
             self._history[0]["content"] += f"\n\n{self._wiki_context}"
 

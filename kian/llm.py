@@ -8,14 +8,55 @@ from typing import Protocol
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_PATH = PROJECT_ROOT / "settings.json"
 
-SYSTEM_PROMPT_TEMPLATE = (
+import re
+
+_PROMPT_BASE = (
     "You are {name}, a helpful educating cartoon animal -- but it's a secret. "
     "You are talking to an imaginative and curious child in grade {grade}. "
-    "Unless you are explaining, teaching, or telling a story, reply in one or two short sentences. "
     "Your output will be spoken aloud, so never use markdown, asterisks, bullet points, emojis, "
     "or any formatting. Use plain spoken English only. "
-    "Simple LaTeX is okay for math (e.g. $\\frac{{a}}{{b}}$, $x^2$, $\\sqrt{{x}}$)."
+    "{length_hint}"
 )
+
+_LATEX_OK = "Simple LaTeX is okay for math (e.g. $\\frac{a}{b}$, $x^2$, $\\sqrt{x}$). "
+
+_HINT_SHORT = _LATEX_OK + "Reply in one to three short sentences."
+
+_HINT_EXPLAIN = (
+    _LATEX_OK
+    + "Explain clearly and thoroughly in about 50 to 150 words. "
+    "Be accurate and organized but keep it conversational."
+)
+
+_HINT_STORY = (
+    "Do not use any LaTeX. "
+    "Be vivid and detailed -- use dialogue, characters, and fun descriptions "
+    "to bring the subject to life. Aim for 100 to 300 words."
+)
+
+_STORY_RE = re.compile(
+    r"tell me a story|think of a story|make up a story|imagine a|tell the story|tell a story"
+    r"|describe a|describe the|paint a picture|can you imagine|tell me about a (time|place)"
+    r"|(can|please|will you|do) share (an|your) idea for a (comedy|romance|drama|novel|book|movie|tv show|tv program|screenplay|scene|skit|joke|play|tiktok|youtube|video)",
+    re.IGNORECASE,
+)
+
+_EXPLAIN_RE = re.compile(
+    r"tell me about|teach me|explain to me|explain (it|this)|please explain|i want to know (how|why)|i (don't|do not) understand|^explain \w+"
+    r"|can you explain|can you tell( me)? about|can you (teach|lecture|clarify|explain|share)|what do you (think|know|suppose)|what can you (tell|say)|how does|how do"
+    r"|why does|why do|why is|who is|who was|where is"
+    r"|what does (the |a |an )?[A-Za-z]+( [A-Za-z]+){,3} (look|sound|feel|smell) like",
+    re.IGNORECASE,
+)
+
+
+def _pick_length_hint(user_text: str, has_wiki: bool) -> tuple[str, str]:
+    """Choose response length hint based on user input. Returns (hint, mode_name)."""
+    if _STORY_RE.search(user_text):
+        return _HINT_STORY, "story"
+    if has_wiki or _EXPLAIN_RE.search(user_text):
+        return _HINT_EXPLAIN, "explain"
+    return _HINT_SHORT, "short"
 
 # Mutable settings (loaded from settings.json if it exists)
 assistant_name = "Kian"
@@ -50,9 +91,9 @@ load_settings()
 _GRADE_NAMES = {-1: "pre-K", 0: "kindergarten"}
 
 
-def system_prompt() -> str:
+def system_prompt(length_hint: str = _HINT_SHORT) -> str:
     grade_str = _GRADE_NAMES.get(child_grade, str(child_grade))
-    return SYSTEM_PROMPT_TEMPLATE.format(name=assistant_name, grade=grade_str)
+    return _PROMPT_BASE.format(name=assistant_name, grade=grade_str, length_hint=length_hint)
 
 MIN_PHRASE_WORDS = 4  # ignore common short overlaps
 
@@ -80,11 +121,13 @@ def _longest_common_phrase(a: str, b: str) -> str | None:
     return best
 
 
-def update_system_prompt(history: list[dict]) -> None:
-    """If the last two assistant responses share a repeated phrase, add an
-    avoidance hint to the system prompt."""
+def update_system_prompt(history: list[dict], user_text: str = "", has_wiki: bool = False) -> None:
+    """Rewrite the system prompt with the appropriate length hint and
+    repetition avoidance."""
+    hint, mode = _pick_length_hint(user_text, has_wiki)
+    print(f"[MODE] {mode}")
     assistant_msgs = [m["content"] for m in history if m["role"] == "assistant"]
-    base = system_prompt()
+    base = system_prompt(length_hint=hint)
 
     if len(assistant_msgs) >= 2:
         phrase = _longest_common_phrase(assistant_msgs[-1], assistant_msgs[-2])

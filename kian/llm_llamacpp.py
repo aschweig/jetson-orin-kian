@@ -80,7 +80,7 @@ class LlamaLLM:
         self._wiki_titles.append(getattr(self, "_pending_wiki_title", None))
         self._pending_wiki_title = None
         self._trim_history()
-        update_system_prompt(self._history)
+        update_system_prompt(self._history, user_text=user_text, has_wiki=bool(self._wiki_context))
 
         # Inject wiki context into system prompt for this turn
         if self._wiki_context:

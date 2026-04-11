@@ -100,6 +100,18 @@ A core design principle is that no screen, keyboard, or companion device is requ
 
 \noindent All settings---name, grade, voice, and volume---are persisted to disk and restored on startup.
 
+\section{Adaptive Response Length}
+
+A 4B-parameter model cannot reliably judge from a single instruction when to give a brief answer versus an elaborate explanation versus a vivid story. To address this, the system prompt is rewritten before each LLM turn based on regex pattern matching of the user's input and whether Wikipedia reference material was retrieved:
+
+\begin{itemize}[nosep]
+  \item \textbf{Short} (default): 1--3 sentences. Triggered by simple questions and casual conversation (e.g., ``What is the quadratic formula?'').
+  \item \textbf{Explain}: 50--150 words. Triggered by phrases such as ``explain'', ``teach me'', ``tell me about'', ``how does'', or by the presence of retrieved Wikipedia context. LaTeX math notation is permitted.
+  \item \textbf{Story}: 100--300 words. Triggered by ``tell me a story'', ``describe a'', ``imagine a'', and similar creative prompts. LaTeX is suppressed to avoid injecting notation into narrative speech.
+\end{itemize}
+
+\noindent This approach moves the length decision out of the model and into deterministic pattern matching, which is more reliable at this model scale. The benchmarks in Section~\ref{sec:eval} use a fixed system prompt (short mode) to minimize output length disparities between models and different runs.
+
 \section{Content Safety}
 
 Children's content filtering requires multiple layers, since no single mechanism is sufficient:
@@ -183,7 +195,7 @@ When conversation turns are evicted from the context window, corresponding wiki 
 
 This approach grounds the LLM's responses in factual content without requiring a larger model or internet access.
 
-\section{Model Evaluation}
+\section{Model Evaluation}\label{sec:eval}
 
 \subsection{Methodology}
 
@@ -205,6 +217,7 @@ The evaluated model families include Qwen3~\cite{yang2025qwen3}, Llama~3.2~\cite
 \subsection{Performance Results}
 
 All models were evaluated with a 2048-token context window across 10 benchmark runs (80 prompts per model).
+No temperature, top-$p$, or other sampling parameters were adjusted; all models used their runtime defaults.
 Repeating the same prompt sequence multiple times averages over two sources of variance: randomness in the model's own generated responses (due to sampling temperature), and randomness in the LLM-as-judge evaluation of qualitative scores.
 Table~\ref{tab:perf} summarizes latency and throughput; Table~\ref{tab:quality} summarizes qualitative response quality.
 
@@ -235,6 +248,10 @@ Recent advances in small-model quality and quantization make this class of syste
 The architectural bet is that privacy, connectivity independence, and child autonomy are worth the tradeoffs inherent in small on-device models---limited context windows, narrower world knowledge, and imperfect content filtering.
 For an educational voice assistant aimed at children, we believe those tradeoffs favor the on-device approach: the privacy guarantees are absolute rather than policy-dependent, the system works anywhere a power outlet exists, and a child can use it without adult mediation.
 The fully offline approach is likely to remain relevant regardless of how cloud-based assistants evolve, as its privacy and accessibility advantages are structural, not just a current-generation artifact.
+
+\section*{Acknowledgments}
+
+This paper and the accompanying codebase were composed with assistance from Claude Opus 4.6 (Anthropic).
 
 \bibliographystyle{unsrt}
 \bibliography{refs}
