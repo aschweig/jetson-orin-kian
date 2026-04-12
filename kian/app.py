@@ -554,7 +554,7 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
 def parse_args():
     p = argparse.ArgumentParser(description="Kian voice assistant")
     p.add_argument(
-        "--backend", choices=["llamacpp", "ollama"], default="llamacpp",
+        "--backend", choices=["llamacpp", "ollama", "server"], default="llamacpp",
         help="LLM backend (default: llamacpp)",
     )
     p.add_argument(
@@ -623,6 +623,8 @@ def main():
         asyncio.run(pipeline(backend=args.backend, model=args.model))
     except KeyboardInterrupt:
         pass
+    except (ConnectionError, FileNotFoundError, TimeoutError) as e:
+        print(f"\n{e}")
     finally:
         leds.off()
         print("\nGoodbye.")
