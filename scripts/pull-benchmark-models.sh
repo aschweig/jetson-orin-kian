@@ -32,6 +32,7 @@ models=(
     granite3.3:2b
     granite4:3b
     nemotron-3-nano:4b
+    gemma3:4b
 )
 
 for model in "${models[@]}"; do

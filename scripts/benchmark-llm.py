@@ -250,6 +250,190 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# llama-server engine (PrismML fork — for Bonsai-8B etc.)
+# ---------------------------------------------------------------------------
+
+LLAMA_SERVER = PROJECT_ROOT / "vendor" / "prismml-llama.cpp" / "build" / "bin" / "llama-server"
+SERVER_HOST = "127.0.0.1"
+SERVER_PORT = 8080
+SERVER_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
+SERVER_STARTUP_TIMEOUT = 120
+
+
+def _server_ready() -> bool:
+    try:
+        urlopen(Request(f"{SERVER_URL}/health"), timeout=2)
+        return True
+    except (URLError, OSError):
+        return False
+
+
+def _start_llama_server(model_path: str) -> "subprocess.Popen":
+    import subprocess as sp
+    cmd = [
+        str(LLAMA_SERVER),
+        "-m", model_path,
+        "-c", "2048",
+        "-ngl", "99",
+        "-fa", "on",
+        "-ctk", "q4_0",
+        "-ctv", "q4_0",
+        "--threads", "6",
+        "--host", SERVER_HOST,
+        "--port", str(SERVER_PORT),
+    ]
+    print(f"  Starting llama-server: {' '.join(cmd)}")
+    proc = sp.Popen(cmd, stdout=sp.DEVNULL, stderr=sp.PIPE)
+
+    deadline = time.monotonic() + SERVER_STARTUP_TIMEOUT
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            stderr = proc.stderr.read().decode() if proc.stderr else ""
+            raise RuntimeError(f"llama-server exited during startup (code {proc.returncode}):\n{stderr}")
+        if _server_ready():
+            print(f"  llama-server ready on {SERVER_HOST}:{SERVER_PORT}")
+            return proc
+        time.sleep(1)
+
+    proc.kill()
+    raise TimeoutError(f"llama-server did not become ready within {SERVER_STARTUP_TIMEOUT}s")
+
+
+def _stop_llama_server(proc: "subprocess.Popen"):
+    import signal
+    if proc.poll() is None:
+        proc.send_signal(signal.SIGTERM)
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+    time.sleep(3)
+
+
+def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[dict]:
+    """Benchmark a model via the PrismML llama-server (OpenAI-compatible API)."""
+    model_name = Path(model_file).stem
+    engine_name = f"server:{model_name}"
+    model_path = str(PROJECT_ROOT / "models" / model_file)
+
+    print(f"\n{'='*60}")
+    print(f"Engine: {engine_name}")
+    print(f"{'='*60}")
+
+    if not Path(model_path).exists():
+        raise FileNotFoundError(f"Model not found: {model_path}")
+    if not LLAMA_SERVER.exists():
+        raise FileNotFoundError(
+            f"llama-server not found at {LLAMA_SERVER}. "
+            "Build it with: ./scripts/build-prismml-llama.sh"
+        )
+
+    # Unload any Ollama models to free GPU
+    ollama_unload_all()
+
+    proc = _start_llama_server(model_path)
+    try:
+        model_size_gb = round(Path(model_path).stat().st_size / 1e9, 2)
+
+        # Warmup
+        print(f"  Warming up ...")
+        warmup_body = json.dumps({
+            "model": model_name,
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": False,
+        }).encode()
+        req = Request(
+            f"{SERVER_URL}/v1/chat/completions",
+            data=warmup_body,
+            headers={"Content-Type": "application/json"},
+        )
+        urlopen(req, timeout=120)
+        print(f"  Model loaded.")
+        time.sleep(2)
+
+        history = [{"role": "system", "content": SYSTEM_PROMPT}]
+        results = []
+        responses = []
+
+        for i, prompt in enumerate(prompts):
+            history.append({"role": "user", "content": prompt})
+
+            body = json.dumps({
+                "model": model_name,
+                "messages": history,
+                "stream": True,
+                "temperature": 0.5,
+                "top_p": 0.85,
+            }).encode()
+
+            req = Request(
+                f"{SERVER_URL}/v1/chat/completions",
+                data=body,
+                headers={"Content-Type": "application/json"},
+            )
+
+            t0 = time.monotonic()
+            resp = urlopen(req, timeout=120)
+
+            ttft = None
+            token_count = 0
+            full_response = []
+
+            for raw_line in resp:
+                line = raw_line.decode().strip()
+                if not line:
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                data = line[6:]
+                if data == "[DONE]":
+                    break
+                chunk = json.loads(data)
+                choices = chunk.get("choices", [])
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {})
+                token = delta.get("content", "")
+                if token:
+                    if ttft is None:
+                        ttft = time.monotonic() - t0
+                    token_count += 1
+                    full_response.append(token)
+            resp.close()
+
+            total = time.monotonic() - t0
+            gen_time = total - (ttft or total)
+            tps = token_count / gen_time if gen_time > 0 else 0
+
+            row = {
+                "engine": engine_name,
+                "prompt_no": i + 1,
+                "ttft": round(ttft or 0, 3),
+                "total_time": round(total, 3),
+                "tokens": token_count,
+                "tok_per_sec": round(tps, 1),
+                "gpu_pct": 100,
+                "vram_gb": model_size_gb,
+                "total_ram_gb": model_size_gb,
+            }
+            results.append(row)
+            response_text = "".join(full_response)
+            responses.append(response_text)
+            print(f"  Prompt {i+1}: TTFT={row['ttft']:.3f}s  "
+                  f"tokens={token_count}  "
+                  f"total={row['total_time']:.1f}s  "
+                  f"tok/s={row['tok_per_sec']:.1f}")
+
+            history.append({"role": "assistant", "content": response_text})
+
+        append_log(log_path, engine_name, prompts, responses, results)
+        return results
+    finally:
+        print(f"  Stopping llama-server ...")
+        _stop_llama_server(proc)
+
+
+# ---------------------------------------------------------------------------
 # llama.cpp engine
 # ---------------------------------------------------------------------------
 
@@ -408,6 +592,9 @@ ALL_ENGINES = [
     "ollama:granite3.3:2b",
     "ollama:granite4:3b",
     "ollama:nemotron-3-nano:4b",
+    "ollama:gemma3:4b",
+    # llama-server (PrismML fork) — manages its own process lifecycle
+    "server:Bonsai-8B.gguf",
     # llamacpp last — CUDA memory not reliably freed on Jetson after exit
     "llamacpp:Qwen3.5-2B-Q4_K_M",
     "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
@@ -464,6 +651,9 @@ def main():
             elif engine.startswith("ollama:"):
                 model = engine[len("ollama:"):]
                 all_results.extend(bench_ollama(model, prompts, log_path))
+            elif engine.startswith("server:"):
+                model_file = engine[len("server:"):]
+                all_results.extend(bench_server(model_file, prompts, log_path))
             else:
                 print(f"Unknown engine: {engine}", file=sys.stderr)
                 sys.exit(1)

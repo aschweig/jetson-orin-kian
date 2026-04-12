@@ -240,19 +240,21 @@ Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization 
 
 | Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
 |--------|-----------|----------|-------|------|-----|
-| llamacpp:Granite 3.3-2B | 0.09s | 0.20s | 25.4 | 100% | 1.6 GB |
-| llamacpp:Granite 4.0 Micro IQ4 | 0.10s | 0.22s | 24.3 | 100% | 1.9 GB |
-| llamacpp:Granite 4.0 Micro | 0.11s | 0.23s | 18.9 | 100% | 2.1 GB |
-| llamacpp:Granite 4.0 H-Micro | 0.13s | 0.32s | 17.6 | 100% | 1.9 GB |
-| llamacpp:Qwen3-4B | 0.17s | 0.30s | 15.1 | 100% | 2.5 GB |
-| ollama:Granite 3.3-2B | 0.23s | 0.33s | 25.8 | 100% | 1.8 GB |
-| llamacpp:Qwen3.5-2B | 0.32s | 0.51s | 25.1 | 100% | 1.3 GB |
-| ollama:Granite 4-3B | 0.36s | 0.47s | 18.5 | 100% | 2.4 GB |
-| ollama:Qwen3-4B | 0.51s | 0.65s | 15.5 | 100% | 3.4 GB |
-| ollama:Llama 3.2-3B | 0.53s | 0.61s | 19.1 | 100% | 2.5 GB |
-| ollama:Ministral-3 3B | 0.59s | 0.73s | 19.5 | 100% | 4.8 GB |
-| ollama:Nemotron-3 Nano 4B | 1.02s | 1.56s | 15.6 | 100% | 5.2 GB |
-| ollama:Qwen3.5-2B | 1.03s | 1.31s | 22.2 | 100% | 3.5 GB |
+| ollama:Granite 3.3-2B | 0.23s | 0.35s | 25.9 | 100% | 1.8 GB |
+| server:Bonsai-8B | 0.31s | 0.38s | 14.2 | 100% | 1.2 GB |
+| ollama:Granite 4-3B | 0.35s | 0.45s | 18.4 | 100% | 2.4 GB |
+| ollama:Qwen3-4B | 0.49s | 0.60s | 15.5 | 100% | 3.4 GB |
+| ollama:Llama 3.2-3B | 0.53s | 0.62s | 19.1 | 100% | 2.5 GB |
+| ollama:Ministral-3 3B | 0.57s | 0.66s | 19.5 | 100% | 4.8 GB |
+| ollama:gemma3:4b | 0.89s | 1.01s | 15.6 | 100% | 4.3 GB |
+| ollama:Qwen3.5-2B | 1.01s | 1.19s | 21.9 | 100% | 3.5 GB |
+| ollama:Nemotron-3 Nano 4B | 1.02s | 1.54s | 15.7 | 100% | 5.2 GB |
+| llamacpp:Granite 3.3-2B | 1.04s | 3.05s | 8.2 | 100% | 1.6 GB |
+| llamacpp:Granite 4.0 H-Micro | 1.19s | 3.53s | 6.7 | 100% | 1.9 GB |
+| llamacpp:Granite 4.0 Micro | 1.22s | 3.49s | 6.2 | 100% | 2.1 GB |
+| llamacpp:Qwen3-4B | 1.47s | 4.24s | 5.1 | 100% | 2.5 GB |
+| llamacpp:Granite 4.0 Micro IQ4 | 2.19s | 6.68s | 5.6 | 100% | 1.9 GB |
+| llamacpp:Qwen3.5-2B | 4.90s | 8.24s | 8.3 | 100% | 1.3 GB |
 
 The default backend is Qwen3-4B-Instruct-2507 via llama.cpp, selected for best latency and no external server dependency.
 See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
