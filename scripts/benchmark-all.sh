@@ -25,7 +25,7 @@ UNLOAD="$SCRIPT_DIR/unload-ollama.sh"
 BENCHMARK="$SCRIPT_DIR/benchmark-llm.py"
 OUTFILE="$PROJECT_ROOT/benchmark-results-all.csv"
 
-RUNS="${1:-10}"
+RUNS="${1:-5}"
 START_RUN="${2:-1}"
 
 if [ "$START_RUN" -gt 1 ] && [ -f "$OUTFILE" ]; then
