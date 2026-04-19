@@ -1,23 +1,24 @@
-\begin{tabular}{l|r|r|r|r|r}
+\begin{tabular}{l|rr|rr|r}
 \toprule
-Engine & Mean TTFT (s) & s.e.\ (s) & p95 TTFT (s) & tok/s & RAM (GB) \\
+& \multicolumn{2}{c|}{Steady-State TTFT} & \multicolumn{2}{c|}{Post-Trim TTFT} & \\
+Engine & Avg (s) & Max (s) & Avg (s) & Max (s) & tok/s \\
 \midrule
-ollama:Granite 3.3-2B & 0.523 & 0.027 & 1.281 & 25.7 & 1.8 \\
-ollama:Granite 4-3B & 0.739 & 0.030 & 1.519 & 18.5 & 2.4 \\
-ollama:Llama 3.2-3B & 0.812 & 0.026 & 1.525 & 19.1 & 2.5 \\
-ollama:Qwen3-4B & 0.896 & 0.033 & 1.970 & 15.2 & 3.4 \\
-server:Bonsai-8B & 0.905 & 0.055 & 2.757 & 13.7 & 1.2 \\
-ollama:Ministral-3 3B & 0.934 & 0.026 & 1.770 & 19.5 & 4.8 \\
-ollama:gemma3:4b & 1.224 & 0.036 & 2.258 & 15.5 & 4.3 \\
-ollama:Qwen3.5-2B & 1.392 & 0.017 & 1.784 & 22.8 & 3.5 \\
-ollama:Nemotron-3 Nano 4B & 2.608 & 0.059 & 3.970 & 16.0 & 5.2 \\
-llamacpp:granite-4.0-h-micro-Q4\_K\_M-c1024 & 6.368 & 0.435 & 17.674 & 6.7 & 1.9 \\
-llamacpp:Granite 4.0 H-Micro & 9.910 & 0.912 & 35.142 & 6.6 & 1.9 \\
-llamacpp:Granite 3.3-2B & 10.701 & 0.834 & 32.863 & 7.1 & 1.6 \\
-llamacpp:Qwen3-4B & 11.189 & 1.101 & 44.024 & 4.6 & 2.5 \\
-llamacpp:Granite 4.0 Micro & 11.848 & 0.875 & 34.451 & 5.5 & 2.1 \\
-llamacpp:Qwen3.5-2B & 17.524 & 0.394 & 24.163 & 8.2 & 1.3 \\
-llamacpp:Granite 4.0 Micro IQ4 & 18.889 & 1.587 & 60.082 & 5.1 & 1.9 \\
+server:ibm-granite\_granite-4.0-micro-IQ4\_XS & 0.102 & 0.211 & 1.171 & 1.325 & 21.6 \\
+server:granite-3.3-2b-instruct-Q4\_K\_M & 0.105 & 0.408 & 1.149 & 1.420 & 24.2 \\
+server:granite-4.0-micro-Q4\_K\_M & 0.108 & 0.224 & 1.424 & 1.654 & 18.1 \\
+server:granite-4.0-h-micro-Q4\_K\_M-c1024 & 0.161 & 0.302 & 1.036 & 1.259 & 17.9 \\
+server:granite-4.0-h-micro-Q4\_K\_M & 0.163 & 0.303 & 2.068 & 2.241 & 17.9 \\
+server:qwen3-4b-instruct-2507-q4\_k\_m & 0.176 & 0.435 & 1.902 & 2.016 & 14.7 \\
+ollama:Granite 3.3-2B & 0.235 & 0.448 & 1.133 & 1.405 & 25.8 \\
+ollama:Granite 4-3B & 0.363 & 0.473 & 1.318 & 1.565 & 18.5 \\
+server:Bonsai-8B & 0.480 & 0.791 & 2.608 & 2.903 & 13.7 \\
+ollama:Llama 3.2-3B & 0.525 & 0.632 & 1.411 & 1.663 & 19.1 \\
+ollama:Qwen3-4B & 0.639 & 0.931 & 1.914 & 2.186 & 15.3 \\
+ollama:Ministral-3 3B & 0.709 & 0.951 & 1.657 & 1.783 & 19.5 \\
+server:Qwen3.5-2B-Q4\_K\_M & 0.717 & 0.921 & 1.107 & 1.176 & 22.9 \\
+ollama:gemma3:4b & 0.880 & 1.073 & 2.082 & 2.301 & 15.5 \\
+ollama:Qwen3.5-2B & 1.263 & 1.786 & 1.690 & 1.931 & 22.6 \\
+ollama:Nemotron-3 Nano 4B & 2.421 & 4.363 & 3.360 & 3.703 & 16.0 \\
 \bottomrule
 \end{tabular}
 \vspace{2pt}

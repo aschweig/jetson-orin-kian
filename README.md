@@ -252,24 +252,24 @@ pulseaudio --start
 
 Measured over 5 runs x 20 conversational prompts per engine. All models use Q4_K_M quantization and 2048-token context.
 
-| Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
-|--------|-----------|----------|-------|------|-----|
-| ollama:Granite 3.3-2B | 0.52s | 1.28s | 25.7 | 100% | 1.8 GB |
-| ollama:Granite 4-3B | 0.74s | 1.52s | 18.5 | 100% | 2.4 GB |
-| ollama:Llama 3.2-3B | 0.81s | 1.52s | 19.1 | 100% | 2.5 GB |
-| ollama:Qwen3-4B | 0.90s | 1.97s | 15.2 | 100% | 3.4 GB |
-| server:Bonsai-8B | 0.91s | 2.76s | 13.7 | 100% | 1.2 GB |
-| ollama:Ministral-3 3B | 0.93s | 1.77s | 19.5 | 100% | 4.8 GB |
-| ollama:gemma3:4b | 1.22s | 2.26s | 15.5 | 100% | 4.3 GB |
-| ollama:Qwen3.5-2B | 1.39s | 1.78s | 22.8 | 100% | 3.5 GB |
-| ollama:Nemotron-3 Nano 4B | 2.61s | 3.97s | 16.0 | 100% | 5.2 GB |
-| llamacpp:granite-4.0-h-micro-Q4_K_M-c1024 | 6.37s | 17.67s | 6.7 | 100% | 1.9 GB |
-| llamacpp:Granite 4.0 H-Micro | 9.91s | 35.14s | 6.6 | 100% | 1.9 GB |
-| llamacpp:Granite 3.3-2B | 10.70s | 32.86s | 7.1 | 100% | 1.6 GB |
-| llamacpp:Qwen3-4B | 11.19s | 44.02s | 4.6 | 100% | 2.5 GB |
-| llamacpp:Granite 4.0 Micro | 11.85s | 34.45s | 5.5 | 100% | 2.1 GB |
-| llamacpp:Qwen3.5-2B | 17.52s | 24.16s | 8.2 | 100% | 1.3 GB |
-| llamacpp:Granite 4.0 Micro IQ4 | 18.89s | 60.08s | 5.1 | 100% | 1.9 GB |
+| Engine | Avg TTFT | Max TTFT | Post-Trim Avg | Post-Trim Max | tok/s |
+|--------|----------|----------|---------------|---------------|-------|
+| server:ibm-granite_granite-4.0-micro-IQ4_XS | 0.10s | 0.21s | 1.17s | 1.32s | 21.6 |
+| server:granite-3.3-2b-instruct-Q4_K_M | 0.11s | 0.41s | 1.15s | 1.42s | 24.2 |
+| server:granite-4.0-micro-Q4_K_M | 0.11s | 0.22s | 1.42s | 1.65s | 18.1 |
+| server:granite-4.0-h-micro-Q4_K_M-c1024 | 0.16s | 0.30s | 1.04s | 1.26s | 17.9 |
+| server:granite-4.0-h-micro-Q4_K_M | 0.16s | 0.30s | 2.07s | 2.24s | 17.9 |
+| server:qwen3-4b-instruct-2507-q4_k_m | 0.18s | 0.43s | 1.90s | 2.02s | 14.7 |
+| ollama:Granite 3.3-2B | 0.24s | 0.45s | 1.13s | 1.41s | 25.8 |
+| ollama:Granite 4-3B | 0.36s | 0.47s | 1.32s | 1.56s | 18.5 |
+| server:Bonsai-8B | 0.48s | 0.79s | 2.61s | 2.90s | 13.7 |
+| ollama:Llama 3.2-3B | 0.52s | 0.63s | 1.41s | 1.66s | 19.1 |
+| ollama:Qwen3-4B | 0.64s | 0.93s | 1.91s | 2.19s | 15.3 |
+| ollama:Ministral-3 3B | 0.71s | 0.95s | 1.66s | 1.78s | 19.5 |
+| server:Qwen3.5-2B-Q4_K_M | 0.72s | 0.92s | 1.11s | 1.18s | 22.9 |
+| ollama:gemma3:4b | 0.88s | 1.07s | 2.08s | 2.30s | 15.5 |
+| ollama:Qwen3.5-2B | 1.26s | 1.79s | 1.69s | 1.93s | 22.6 |
+| ollama:Nemotron-3 Nano 4B | 2.42s | 4.36s | 3.36s | 3.70s | 16.0 |
 
 The default backend is Qwen3-4B-Instruct-2507 via llama.cpp, selected for best latency and no external server dependency.
 See the [litepaper](docs/litepaper.tex) for qualitative evaluation details.
