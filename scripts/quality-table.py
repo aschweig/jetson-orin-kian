@@ -113,9 +113,16 @@ def load_csv(path: Path) -> tuple[dict, dict, str]:
 
 def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     """Generate a LaTeX fragment: quality table + discussion paragraph."""
-    # Count prompts from benchmark file
+    # Count prompts from benchmark file, excluding cache-warming probes
+    # (these are stripped from conversations before qualitative evaluation;
+    # see strip_dummy_prompts() in qualitative-study.py).
+    SINGLE_TOKEN_PROMPTS = {"Ummm", "Okay"}
     prompts_file = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
-    n_prompts = len([l for l in prompts_file.read_text().strip().splitlines() if l.strip()]) if prompts_file.exists() else "?"
+    if prompts_file.exists():
+        all_prompts = [l.strip() for l in prompts_file.read_text().strip().splitlines() if l.strip()]
+        n_prompts = sum(1 for p in all_prompts if p not in SINGLE_TOKEN_PROMPTS)
+    else:
+        n_prompts = "?"
 
     # Sort by mean overall descending, then factual errors ascending as tiebreaker
     engines_sorted = sorted(

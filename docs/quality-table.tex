@@ -23,7 +23,7 @@ server:Qwen3.5-2B-Q4\_K\_M & 1.8 & 0.2 & 6.6 & 10 \\
 ollama:Qwen3.5-2B & 1.0 & 0.6 & 6.8 & 8 \\
 \bottomrule
 \end{tabular}
-\caption{Qualitative response quality across 5 benchmark runs (22 prompts each). Overall is a 1--5 holistic score (higher is better); 4th-Wall counts responses breaking the cartoon-animal persona; Fact Err counts factual errors on factual prompts (lower is better). Evaluated by Claude Opus 4.6.}
+\caption{Qualitative response quality across 5 benchmark runs (20 prompts each; two single-token cache-warming probes are excluded). Overall is a 1--5 holistic score (higher is better); 4th-Wall counts responses breaking the cartoon-animal persona; Fact Err counts factual errors on factual prompts (lower is better). Evaluated by Claude Opus 4.6.}
 \label{tab:quality}
 \end{table}
 
@@ -62,4 +62,4 @@ Where both Ollama and llama.cpp variants of the same base model were tested, dif
 
 \subsection{Benchmark Limitations}
 
-This benchmark is a task-specific internal evaluation, not a general capability ranking. The prompt set is small (22 prompts across 5 conversations) and English-only, covering a narrow slice of the topics a child might raise. Qualitative scores were assigned by a single LLM judge (Claude Opus 4.6) rather than human raters, which may not fully capture dimensions of child-appropriateness such as tone, pacing, emotional register, or age-calibrated vocabulary. The benchmark does not evaluate the content-safety pipeline, the text-to-speech system, or latency under real serving conditions. Ollama and llama.cpp variants may use different quantization levels or prompt templates, so backend comparisons reflect the full serving configuration rather than a controlled ablation. Results should be interpreted as a comparative signal for model selection on this hardware, not as absolute quality claims.
+This benchmark is a task-specific internal evaluation, not a general capability ranking. The prompt set is small (20 prompts across 5 conversations) and English-only, covering a narrow slice of the topics a child might raise. Qualitative scores were assigned by a single LLM judge (Claude Opus 4.6) rather than human raters, which may not fully capture dimensions of child-appropriateness such as tone, pacing, emotional register, or age-calibrated vocabulary. The benchmark does not evaluate the content-safety pipeline, the text-to-speech system, or latency under real serving conditions. Ollama and llama.cpp variants may use different quantization levels or prompt templates, so backend comparisons reflect the full serving configuration rather than a controlled ablation. Results should be interpreted as a comparative signal for model selection on this hardware, not as absolute quality claims.
