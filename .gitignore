@@ -21,6 +21,9 @@ wheels/
 # Per-device settings
 settings.json
 
+# Vendor builds (e.g. PrismML llama.cpp fork)
+vendor/
+
 # OS
 .DS_Store
 

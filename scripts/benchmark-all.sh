@@ -6,6 +6,17 @@
 #   scripts/benchmark-all.sh          # 10 runs (default)
 #   scripts/benchmark-all.sh 3        # 3 runs
 #   scripts/benchmark-all.sh 2 9      # 2 runs, starting at run 9 (appends to existing CSV)
+#
+# Sudo access (avoid password prompts during long runs):
+#   This script and benchmark-llm.py invoke `sudo` for two commands:
+#     - sudo cat /sys/kernel/debug/nvmap/iovmm/clients   (Jetson GPU diagnostics)
+#     - sudo tee /proc/sys/vm/drop_caches                (page cache reset between models)
+#   To enable passwordless sudo for ONLY those two commands, install:
+#     sudo tee /etc/sudoers.d/kian-benchmark > /dev/null <<'EOF'
+#     aaron ALL=(root) NOPASSWD: /usr/bin/cat /sys/kernel/debug/nvmap/iovmm/clients
+#     aaron ALL=(root) NOPASSWD: /usr/bin/tee /proc/sys/vm/drop_caches
+#     EOF
+#     sudo chmod 0440 /etc/sudoers.d/kian-benchmark
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -14,14 +25,14 @@ UNLOAD="$SCRIPT_DIR/unload-ollama.sh"
 BENCHMARK="$SCRIPT_DIR/benchmark-llm.py"
 OUTFILE="$PROJECT_ROOT/benchmark-results-all.csv"
 
-RUNS="${1:-10}"
+RUNS="${1:-5}"
 START_RUN="${2:-1}"
 
 if [ "$START_RUN" -gt 1 ] && [ -f "$OUTFILE" ]; then
     echo "Appending runs $START_RUN..$((START_RUN + RUNS - 1)) to $OUTFILE"
 else
     echo "Running benchmark $RUNS times → $OUTFILE"
-    echo "Run,Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB" > "$OUTFILE"
+    echo "Run,Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB,Trimmed,SwapMB,CacheMB" > "$OUTFILE"
     START_RUN=1
 fi
 

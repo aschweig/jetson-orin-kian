@@ -34,8 +34,9 @@ _HINT_STORY = (
     "to bring the subject to life. Aim for 100 to 300 words."
 )
 
+_STORY_ADJ = r"(?:(?:short|long|crazy|fun|funny|romantic|goofy|silly|sad|happy|bedtime|scary|spooky|cool|quick|wild|weird|exciting) )?"
 _STORY_RE = re.compile(
-    r"tell me a story|think of a story|make up a story|imagine a|tell the story|tell a story"
+    rf"tell me a {_STORY_ADJ}story|think of a {_STORY_ADJ}story|make up a {_STORY_ADJ}story|imagine a|tell the story|tell a {_STORY_ADJ}story"
     r"|describe a|describe the|paint a picture|can you imagine|tell me about a (time|place)"
     r"|(can|please|will you|do) share (an|your) idea for a (comedy|romance|drama|novel|book|movie|tv show|tv program|screenplay|scene|skit|joke|play|tiktok|youtube|video)",
     re.IGNORECASE,
@@ -142,13 +143,24 @@ class LLMBackend(Protocol):
     def reset(self) -> None: ...
 
 
-def create_llm(backend: str = "llamacpp", model: str | None = None) -> LLMBackend:
+def create_llm(backend: str = "server", model: str | None = None) -> LLMBackend:
     """Factory: instantiate the requested LLM backend."""
-    if backend == "llamacpp":
-        from kian.llm_llamacpp import LlamaLLM
-        return LlamaLLM(model_path=model)
+    if backend == "server":
+        from kian.llm_server import ServerLLM
+        return ServerLLM(model=model)
     elif backend == "ollama":
         from kian.llm_ollama import OllamaLLM
         return OllamaLLM(model=model)
+    elif backend == "llamacpp":
+        import warnings
+        warnings.warn(
+            "The 'llamacpp' backend is deprecated: post-trim TTFT is "
+            "pathologically slow. See kian/llm_llamacpp.py for details. "
+            "Use --backend server instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from kian.llm_llamacpp import LlamaLLM
+        return LlamaLLM(model_path=model)
     else:
-        raise ValueError(f"Unknown backend: {backend!r}  (choose 'llamacpp' or 'ollama')")
+        raise ValueError(f"Unknown backend: {backend!r}  (choose 'server', 'ollama', or 'llamacpp')")

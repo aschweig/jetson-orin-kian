@@ -256,8 +256,9 @@ async def _stream_response(llm, tts, user_text, shutdown):
                     print(f"[LLM] token gap {gap:.1f}s")
                 t_last_token = now
 
-            if naughty.check(token):
-                print("[NAUGHTY] blocked")
+            matched = naughty.check(token)
+            if matched:
+                print(f"[NAUGHTY/ngram] blocked: {matched!r} in: {(buf + token).strip()!r}")
                 naughty_hit = True
                 break
 
@@ -433,8 +434,9 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
 
         # Check for naughty input — deflect without adding to context
         input_naughty = NaughtyDetector()
-        if any(input_naughty.check(w) for w in text.split()):
-            print("[NAUGHTY] input blocked")
+        input_matched = next((m for m in (input_naughty.check(w) for w in text.split()) if m), None)
+        if input_matched:
+            print(f"[NAUGHTY/ngram] input blocked: {input_matched!r} in: {text!r}")
             await tts.speak("I'm not sure what I'm hearing.")
             tts.drain()
             tts.beep()
@@ -514,10 +516,18 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             llm.set_wiki_context(None)
         llm_input = text
 
+        # Wait for any background KV cache warming to finish
+        if hasattr(llm, 'join_cache_warm'):
+            await llm.join_cache_warm()
+
         # LLM → TTS streaming (producer-consumer with barge-in)
         interrupted, naughty_hit, llm_loop, full_response = await _stream_response(
             llm, tts, llm_input, shutdown,
         )
+
+        # Pre-fill KV cache in background if a trim happened during this turn
+        if hasattr(llm, 'start_cache_warm'):
+            llm.start_cache_warm()
 
         if naughty_hit:
             llm.reset()
@@ -542,6 +552,8 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
         tts.drain()
         leds.idle()
         vad.resume()
+        if hasattr(llm, "estimate_tokens"):
+            print(f"[CTX] {llm.estimate_tokens()} tokens in history")
         print("[Listening]\n")
 
     if quit_task is not None:
@@ -554,8 +566,8 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
 def parse_args():
     p = argparse.ArgumentParser(description="Kian voice assistant")
     p.add_argument(
-        "--backend", choices=["llamacpp", "ollama"], default="llamacpp",
-        help="LLM backend (default: llamacpp)",
+        "--backend", choices=["server", "ollama", "llamacpp"], default="server",
+        help="LLM backend (default: server). 'llamacpp' is deprecated.",
     )
     p.add_argument(
         "--model",
@@ -616,13 +628,35 @@ def setup_audio_devices(speaker_match: str | None, mic_match: str | None):
     print("[AUDIO] WARNING: devices not found after 30s")
 
 
+def drop_page_cache():
+    """Drop kernel page cache so NVMAP can allocate GPU memory for model loads.
+
+    Jetson unified memory: page cache from prior mmap'd files (GGUF, ONNX,
+    SQLite) can block GPU allocations. Requires a NOPASSWD sudoers rule for
+    `/usr/bin/tee /proc/sys/vm/drop_caches`; silently skipped otherwise.
+    """
+    import subprocess as sp
+    try:
+        sp.run(
+            ["sudo", "-n", "tee", "/proc/sys/vm/drop_caches"],
+            input=b"3", stdout=sp.DEVNULL, stderr=sp.DEVNULL, timeout=5,
+        )
+    except (sp.TimeoutExpired, OSError):
+        pass
+
+
 def main():
     args = parse_args()
+    drop_page_cache()
     setup_audio_devices(args.speaker, args.mic)
     try:
         asyncio.run(pipeline(backend=args.backend, model=args.model))
     except KeyboardInterrupt:
-        pass
+        print("\n[interrupted]")
+    except (ConnectionError, FileNotFoundError, TimeoutError) as e:
+        print(f"\n{e}")
+    except BaseException as e:
+        print(f"\n[exit] {type(e).__name__}: {e}")
     finally:
         leds.off()
         print("\nGoodbye.")

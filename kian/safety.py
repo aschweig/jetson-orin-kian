@@ -23,7 +23,20 @@ _session: onnxruntime.InferenceSession | None = None
 _tokenizer: Tokenizer | None = None
 
 # Confidence threshold: flag as unsafe when P(toxic) >= this value.
-_THRESHOLD = 0.5
+# The 38M model assigns high scores to benign storytelling phrases
+# (e.g. "giggling duck" scores 0.91). 0.92 keeps clearly toxic inputs
+# flagged (~0.99) while letting whimsical phrasing through.
+_THRESHOLD = 0.92
+
+# Smart quotes / dashes tokenize to rare pieces that correlate with toxicity
+# in this model's training data (adversarial homoglyph obfuscation).
+# Normalize to ASCII before classification to avoid false positives.
+_PUNCT_MAP = str.maketrans({
+    "\u2018": "'", "\u2019": "'",
+    "\u201c": '"', "\u201d": '"',
+    "\u2014": "-", "\u2013": "-",
+    "\u2026": "...",
+})
 
 
 def _get_model() -> tuple[onnxruntime.InferenceSession, Tokenizer] | None:
@@ -59,7 +72,7 @@ def classify(text: str) -> bool:
         return True  # fail open if model unavailable
 
     session, tokenizer = pair
-    enc = tokenizer.encode(text)
+    enc = tokenizer.encode(text.translate(_PUNCT_MAP))
     input_ids = np.array([enc.ids], dtype=np.int64)
     attention_mask = np.array([enc.attention_mask], dtype=np.int64)
 

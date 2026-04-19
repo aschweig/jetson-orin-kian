@@ -44,28 +44,49 @@ on-device voice assistants for children, running on a Jetson Orin Nano.
 Below is a qualitative evaluation table. Each row is a small language model \
 evaluated across {n} independent multi-turn conversations with a rubric \
 scored by {evaluator}. The columns are:
-- Err Avg / Err Max: factual errors per conversation (lower is better)
-- Chatty: how many prompts were overly verbose or used repetitive phrases (lower is better, max 5)
-- Poor Prose: how many of the 3 longer-form responses had weak prose (lower is better, max 3)
-- Example flub: a representative factual error
+- Overall: holistic conversation quality, 1-5 (higher is better)
+- 4th-Wall: count of responses that broke the cartoon-animal persona (lower is better)
+- Fact Err Avg / Max: factual errors per conversation on factual prompts (lower is better)
+- Example flub: a representative broken-character moment, factual howler, or nonsensical phrase
+
+Note on engine naming: engines whose name ends with "-c<N>" (e.g. "-c1024") \
+were run with a REDUCED context window of N tokens; the default context is 2048 \
+tokens. These reduced-context variants are speed and trim-cost experiments, not \
+extended-context variants. Do not describe them as "extended-context".
 
 {table}
 
-Write 1-2 short paragraphs (suitable for a \\subsection in a LaTeX litepaper) \
-discussing conclusions from this table. Highlight the IBM Granite and Qwen3 \
-model families, and Meta Llama, as contenders for on-device voice assistance. \
-Note trade-offs (accuracy vs verbosity, model size, etc). Be concise and \
-data-driven — cite numbers from the table.
+Write 1-2 short paragraphs of discussion contrasting the strongest and weakest \
+performers. Call out any cases where a model is strong on one axis but weak on \
+another (e.g., high Overall but frequent fourth-wall breaks, or low factual \
+errors but stilted prose). Note differences between Ollama and llama.cpp (server) \
+variants of the same base model if present. Close with a sentence identifying the \
+best choices for this use case.
 
-Output ONLY the LaTeX body text (no \\subsection, no \\begin{{document}}). \
+Then add a Benchmark Limitations subsection with content like:
+
+--- Example Limitations subsection ---
+\\subsection{{Benchmark Limitations}}
+
+This benchmark is a task-specific internal evaluation, not a general capability \
+ranking. The prompt set is small ({n_prompts} prompts) and English-only, covering \
+a narrow slice of the topics a child might ask about. Qualitative scores were \
+assigned by an LLM judge ({evaluator}) rather than human raters, which may not \
+capture all dimensions of child-appropriateness such as tone, pacing, or emotional \
+register. The benchmark also does not evaluate the content safety pipeline or the \
+LaTeX-to-speech system. Results should be interpreted as a comparative signal for \
+model selection on this hardware, not as absolute quality claims.
+--- End example ---
+
+Output ONLY the LaTeX body text (no \\begin{{document}}). \
 Use \\textbf{{Model Name}} when first mentioning a model. Do not use \
-markdown. Do not wrap in a code block."""
+markdown. Do not wrap in a code block. Do not use thinking tags."""
 
 
 def load_csv(path: Path) -> tuple[dict, dict, str]:
     """Load CSV and return (scores_by_engine, best_flubs, evaluator).
 
-    scores_by_engine: {engine: [{"errors": int, "chatty": int, ...}, ...]}
+    scores_by_engine: {engine: [{"overall": int, "fourth_wall": int, ...}, ...]}
     best_flubs: {engine: str}
     evaluator: str
     """
@@ -77,9 +98,9 @@ def load_csv(path: Path) -> tuple[dict, dict, str]:
         for row in csv.DictReader(f):
             engine = row["Engine"]
             scores[engine].append({
-                "errors": int(row["Errors"]),
-                "chatty": int(row["Chatty"]),
-                "poor_prose": int(row["PoorProse"]),
+                "overall": int(row["Overall"]),
+                "fourth_wall": int(row["FourthWall"]),
+                "factual_errors": int(row["FactualErrors"]),
                 "flub": row["Flub"],
             })
             if row.get("BestFlub"):
@@ -92,23 +113,34 @@ def load_csv(path: Path) -> tuple[dict, dict, str]:
 
 def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     """Generate a LaTeX fragment: quality table + discussion paragraph."""
-    # Sort by mean errors ascending, then prose descending
+    # Count prompts from benchmark file, excluding cache-warming probes
+    # (these are stripped from conversations before qualitative evaluation;
+    # see strip_dummy_prompts() in qualitative-study.py).
+    SINGLE_TOKEN_PROMPTS = {"Ummm", "Okay"}
+    prompts_file = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
+    if prompts_file.exists():
+        all_prompts = [l.strip() for l in prompts_file.read_text().strip().splitlines() if l.strip()]
+        n_prompts = sum(1 for p in all_prompts if p not in SINGLE_TOKEN_PROMPTS)
+    else:
+        n_prompts = "?"
+
+    # Sort by mean overall descending, then factual errors ascending as tiebreaker
     engines_sorted = sorted(
         scores.keys(),
         key=lambda e: (
-            sum(d["errors"] for d in scores[e]) / len(scores[e]),
-            sum(d["poor_prose"] for d in scores[e]) / len(scores[e]),
+            -sum(d["overall"] for d in scores[e]) / len(scores[e]),
+            sum(d["factual_errors"] for d in scores[e]) / len(scores[e]),
         ),
     )
 
     # --- Scores table (no flubs) ---
     lines = [
-        r"\begin{table}[h]",
+        r"\begin{table}[H]",
         r"\centering",
         r"\small",
         r"\begin{tabular}{l|r|r|r|r}",
         r"\toprule",
-        r"Engine & Err Avg & Err Max & Chatty & Poor Prose \\",
+        r"Engine & Overall & 4th-Wall & Fact Err Avg & Fact Err Max \\",
         r"\midrule",
     ]
 
@@ -121,31 +153,25 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         n = len(s)
         if n_sample is None:
             n_sample = n
-        err_avg = sum(d["errors"] for d in s) / n
-        err_max = max(d["errors"] for d in s)
-        chatty_avg = sum(d["chatty"] for d in s) / n
-        poor_prose_avg = sum(d["poor_prose"] for d in s) / n
+        overall_avg = sum(d["overall"] for d in s) / n
+        fw_avg = sum(d["fourth_wall"] for d in s) / n
+        fact_avg = sum(d["factual_errors"] for d in s) / n
+        fact_max = max(d["factual_errors"] for d in s)
         flub = best_flubs.get(engine, "")
 
         # Plain-text row for LLM prompt (ASCII-only flub)
         flub_ascii = "".join(c if ord(c) < 128 else "*" for c in flub)
-        if flub_ascii:
-            plain_rows.append(
-                f"{name:<35} {err_avg:>5.1f} {err_max:>5} "
-                f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  "
-                f'"{flub_ascii}"'
-            )
-        else:
-            plain_rows.append(
-                f"{name:<35} {err_avg:>5.1f} {err_max:>5} "
-                f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  ---"
-            )
+        flub_plain = f'"{flub_ascii}"' if flub_ascii else "---"
+        plain_rows.append(
+            f"{name:<35} {overall_avg:>7.1f} {fw_avg:>8.1f} "
+            f"{fact_avg:>7.1f} {fact_max:>7}  {flub_plain}"
+        )
 
         # Scores row
         name_tex = name.replace("_", r"\_")
         lines.append(
-            f"{name_tex} & {err_avg:.1f} & {err_max} & "
-            f"{chatty_avg:.1f} & {poor_prose_avg:.1f} \\\\"
+            f"{name_tex} & {overall_avg:.1f} & {fw_avg:.1f} & "
+            f"{fact_avg:.1f} & {fact_max} \\\\"
         )
 
         # Flub row (for second table) — strip non-ASCII to avoid pdflatex errors
@@ -164,10 +190,10 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     evaluator_tex = evaluator.replace("_", r"\_")
     lines.append(
         r"\caption{Qualitative response quality across "
-        + f"{n_sample} benchmark runs (8 prompts each). "
-        + r"All metrics are lower-is-better: Err = factual errors per conversation, "
-        + r"Chatty = verbose or repetitive responses (of 5), "
-        + r"Poor Prose = weak explanatory/story responses (of 3). "
+        + f"{n_sample} benchmark runs ({n_prompts} prompts each). "
+        + r"Overall is a 1--5 holistic score (higher is better); "
+        + r"4th-Wall counts responses breaking the cartoon-animal persona; "
+        + r"Fact Err counts factual errors on factual prompts (lower is better). "
         + "Evaluated by " + evaluator_tex + ".}"
     )
     lines.append(r"\label{tab:quality}")
@@ -175,7 +201,7 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
 
     # --- Flubs table ---
     lines.append("")
-    lines.append(r"\begin{table}[h]")
+    lines.append(r"\begin{table}[H]")
     lines.append(r"\centering")
     lines.append(r"\small")
     lines.append(r"\begin{tabular}{l|l}")
@@ -193,24 +219,30 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     # --- Discussion (outside table environment) ---
     # Generate discussion via claude -p
     plain_header = (
-        f"{'Engine':<35} {'ErrAvg':>6} {'ErrMax':>6} "
-        f"{'Chatty':>6} {'PoorProse':>9}  Example flub"
+        f"{'Engine':<35} {'Overall':>7} {'4th-Wall':>8} "
+        f"{'FactAvg':>7} {'FactMax':>7}  Example flub"
     )
     plain_table = plain_header + "\n" + "\n".join(plain_rows)
     prompt = DISCUSSION_PROMPT.format(
-        n=n_sample, evaluator=evaluator, table=plain_table,
+        n=n_sample, n_prompts=n_prompts, evaluator=evaluator, table=plain_table,
     )
 
     print("  Generating discussion via claude -p ...", file=sys.stderr)
     try:
         result = subprocess.run(
-            ["claude", "-p"],
+            ["claude", "-p", "--model", "claude-opus-4-6"],
             input=prompt,
             capture_output=True, text=True, timeout=120,
         )
         if result.returncode == 0 and result.stdout.strip():
-            # Strip non-ASCII from discussion to avoid pdflatex errors
-            discussion = "".join(c if ord(c) < 128 else "*" for c in result.stdout.strip())
+            # Strip thinking tags and non-ASCII to avoid pdflatex errors
+            import re
+            discussion = result.stdout.strip()
+            # Remove <think>...</think>, <thinking>...</thinking>, and any
+            # antml-prefixed variants that some Claude harnesses emit.
+            discussion = re.sub(r"<(?:antml:)?thinking>.*?</(?:antml:)?thinking>\s*", "", discussion, flags=re.DOTALL)
+            discussion = re.sub(r"<think>.*?</think>\s*", "", discussion, flags=re.DOTALL)
+            discussion = "".join(c if ord(c) < 128 else "*" for c in discussion)
         else:
             print("    WARNING: claude -p failed, using placeholder", file=sys.stderr)
             discussion = r"\textit{Discussion to be written.}"
