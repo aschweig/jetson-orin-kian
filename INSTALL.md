@@ -113,7 +113,10 @@ systemctl --user stop kian
 systemctl --user status kian
 systemctl --user enable kian        # enable on boot
 systemctl --user disable kian       # disable on boot
-journalctl --user -u kian -f        # tail logs
+journalctl --user-unit=kian -n 200  # last 200 log lines
+journalctl --user-unit=kian -f      # tail logs
+# Note: on Jetson, `journalctl --user -u kian` returns no entries —
+# use the `--user-unit=` form instead.
 
 # GPIO
 sudo systemctl status kian-gpio

@@ -251,10 +251,45 @@ def _split_variables(m: re.Match) -> str:
     return " ".join(word)
 
 
+def split_coefficients(s: str) -> str:
+    """Insert a space between a coefficient and a variable so each is
+    pronounced separately (e.g. "Ax" → "A x", "2x" → "2 x"). Operates on
+    raw math before English words are inserted, to avoid splitting words
+    like "by" in "divided by".
+    """
+    s = re.sub(r"\b([abcdiumABCDUM])([xyz](?:\b|[^(]))", r"\1 \2", s)
+    s = re.sub(r"(\d)([xyz]\b)", r"\1 \2", s)
+    return s
+
+
+_FUNC_NAMES = "|".join(FUNCS)
+
+
+def normalize_func_braces(s: str) -> str:
+    """Rewrite `\\sin{x}` → `\\sin(x)` etc. LLMs sometimes emit brace-wrapped
+    function arguments; normalize to parens so the args get spoken properly."""
+    out = []
+    i = 0
+    while i < len(s):
+        m = re.match(rf"\\({_FUNC_NAMES})\s*\{{", s[i:])
+        if m:
+            name = m.group(1)
+            body_start = i + m.end() - 1  # position of '{'
+            body, j = extract_braced(s, body_start)
+            out.append(f"\\{name}({body})")
+            i = j
+        else:
+            out.append(s[i])
+            i += 1
+    return "".join(out)
+
+
 def _convert_math(s: str) -> str:
     """Convert a single math expression (without delimiters) to speech."""
+    s = normalize_func_braces(s)
     s = replace_fracs(s)
     s = replace_sqrts(s)
+    s = split_coefficients(s)
     s = replace_commands(s)
     s = replace_subscripts(s)
     s = replace_superscripts(s)
@@ -279,7 +314,12 @@ def latex_to_speech(s: str) -> str:
     def _replace(m: re.Match) -> str:
         # Pick whichever group matched
         expr = next(g for g in m.groups() if g is not None)
-        return _convert_math(expr)
+        result = _convert_math(expr)
+        # Force standalone "a" to the letter-name pronunciation. Applied once
+        # at the top level so recursive frac/sqrt calls don't get their
+        # brackets mangled by the outer replace_delimiters pass. Requires a
+        # recent piper build.
+        return re.sub(r"\ba\b", "[[ ˈeɪ ]]", result)
     return _MATH_RE.sub(_replace, s)
 
 

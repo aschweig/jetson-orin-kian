@@ -6,7 +6,7 @@ CASES = [
     # --- Basic arithmetic ---
     (r"$1 + 2$", "1 plus 2"),
     (r"$x - 3$", "x minus 3"),
-    (r"$a = b$", "a equals b"),
+    (r"$a = b$", "[[ ˈeɪ ]] equals b"),
 
     # --- Fractions: atomic / atomic ---
     (r"$\frac{x}{y}$", "x over y"),
@@ -14,23 +14,23 @@ CASES = [
     (r"$\frac{1}{n}$", "1 over n"),
 
     # --- Fractions: compound numerator ("over" implicitly ends quantity) ---
-    (r"$\frac{a+b}{2}$", "the quantity a plus b over 2"),
-    (r"$\frac{a+b}{c}$", "the quantity a plus b over c"),
+    (r"$\frac{a+b}{2}$", "the quantity [[ ˈeɪ ]] plus b over 2"),
+    (r"$\frac{a+b}{c}$", "the quantity [[ ˈeɪ ]] plus b over c"),
 
     # --- Fractions: compound denominator ---
-    (r"$\frac{2}{a+b}$", "2 over the quantity a plus b"),
+    (r"$\frac{2}{a+b}$", "2 over the quantity [[ ˈeɪ ]] plus b"),
     (r"$\frac{x}{y+1}$", "x over the quantity y plus 1"),
 
     # --- Fractions: both compound ---
-    (r"$\frac{a+b}{b+c}$", "the quantity a plus b over the quantity b plus c"),
-    (r"$\frac{a+b}{c+d}$", "the quantity a plus b over the quantity c plus d"),
+    (r"$\frac{a+b}{b+c}$", "the quantity [[ ˈeɪ ]] plus b over the quantity b plus c"),
+    (r"$\frac{a+b}{c+d}$", "the quantity [[ ˈeɪ ]] plus b over the quantity c plus d"),
 
     # --- Mixed expression with multiple fractions ---
     (
         r"$1 + \frac{a+b}{2} + \frac{2}{a+b} + \frac{a+b}{b+c}$",
-        "1 plus the quantity a plus b over 2"
-        " plus 2 over the quantity a plus b"
-        " plus the quantity a plus b over the quantity b plus c",
+        "1 plus the quantity [[ ˈeɪ ]] plus b over 2"
+        " plus 2 over the quantity [[ ˈeɪ ]] plus b"
+        " plus the quantity [[ ˈeɪ ]] plus b over the quantity b plus c",
     ),
 
     # --- Superscripts ---
@@ -41,7 +41,7 @@ CASES = [
 
     # --- Subscripts ---
     (r"$x_1$", "x sub 1"),
-    (r"$a_{ij}$", "a sub i j"),
+    (r"$a_{ij}$", "[[ ˈeɪ ]] sub i j"),
 
     # --- Square roots: simple (no "the quantity") ---
     (r"$\sqrt{x}$", "square root of x"),
@@ -49,11 +49,11 @@ CASES = [
 
     # --- Square roots: compound (needs "the quantity ... end quantity") ---
     (r"$\sqrt{x^2+y^2}$", "square root of the quantity x squared plus y squared end quantity"),
-    (r"$\sqrt{a - b}$", "square root of the quantity a minus b end quantity"),
+    (r"$\sqrt{a - b}$", "square root of the quantity [[ ˈeɪ ]] minus b end quantity"),
 
     # --- Nth roots ---
     (r"$\sqrt[3]{8}$", "3 root of 8"),
-    (r"$\sqrt[3]{a+b}$", "3 root of the quantity a plus b end quantity"),
+    (r"$\sqrt[3]{a+b}$", "3 root of the quantity [[ ˈeɪ ]] plus b end quantity"),
 
     # --- Greek letters ---
     (r"$\alpha$", "alpha"),
@@ -66,26 +66,37 @@ CASES = [
     (r"$\cos(\theta)$", "cos open paren theta close paren"),
     (r"$\ln(x)$", "ln open paren x close paren"),
 
+    # --- Functions with brace-wrapped args (LLMs sometimes emit these
+    # instead of parens) — normalize to paren form.
+    (r"$\exp{ix}$", "exp open paren i x close paren"),
+    (r"$\sin{ix}$", "sin open paren i x close paren"),
+    (r"$\cos{ix}$", "cos open paren i x close paren"),
+    (r"$\sin{\pi}$", "sin open paren pi close paren"),
+    (r"$\cos{2\pi}$", "cos open paren 2 pi close paren"),
+    (r"$\exp{i\pi}$", "exp open paren i pi close paren"),
+    (r"$\ln{x}$", "ln open paren x close paren"),
+    (r"$\tan{\theta}$", "tan open paren theta close paren"),
+
     # --- Unary negative vs binary minus ---
     (r"$-x$", "negative x"),
     (r"$\exp(-i \pi)$", "exp open paren negative i pi close paren"),
-    (r"$a - b$", "a minus b"),
+    (r"$a - b$", "[[ ˈeɪ ]] minus b"),
     (r"$(-1)$", "open paren negative 1 close paren"),
 
     # --- Operators ---
     (r"$x \times y$", "x times y"),
     (r"$x \cdot y$", "x times y"),
-    (r"$a \div b$", "a divided by b"),
+    (r"$a \div b$", "[[ ˈeɪ ]] divided by b"),
     (r"$x \pm 5$", "x plus or minus 5"),
     (r"$x \approx 3.14$", "x approximately equal to 3.14"),
-    (r"$a \leq b$", "a less than or equal to b"),
-    (r"$a \geq b$", "a greater than or equal to b"),
-    (r"$a \neq b$", "a not equal to b"),
-    (r"$a \le b$", "a less than or equal to b"),
-    (r"$a \ge b$", "a greater than or equal to b"),
-    (r"$a \ne b$", "a not equal to b"),
-    (r"$a \lt b$", "a is less than b"),
-    (r"$a \gt b$", "a is greater than b"),
+    (r"$a \leq b$", "[[ ˈeɪ ]] less than or equal to b"),
+    (r"$a \geq b$", "[[ ˈeɪ ]] greater than or equal to b"),
+    (r"$a \neq b$", "[[ ˈeɪ ]] not equal to b"),
+    (r"$a \le b$", "[[ ˈeɪ ]] less than or equal to b"),
+    (r"$a \ge b$", "[[ ˈeɪ ]] greater than or equal to b"),
+    (r"$a \ne b$", "[[ ˈeɪ ]] not equal to b"),
+    (r"$a \lt b$", "[[ ˈeɪ ]] is less than b"),
+    (r"$a \gt b$", "[[ ˈeɪ ]] is greater than b"),
 
     # --- Infinity ---
     (r"$x \to \infty$", "x to infinity"),
@@ -101,8 +112,8 @@ CASES = [
     (r"$A \cup B$", "A union B"),
     (r"$x \in S$", "x in S"),
     (r"$x \notin S$", "x not in S"),
-    (r"$A \subset B$", "A is a subset of B"),
-    (r"$A \subseteq B$", "A is a subset of or equal to B"),
+    (r"$A \subset B$", "A is [[ ˈeɪ ]] subset of B"),
+    (r"$A \subseteq B$", "A is [[ ˈeɪ ]] subset of or equal to B"),
     (r"$\emptyset$", "the empty set"),
     (r"$A \setminus B$", "A minus B"),
 
@@ -124,13 +135,13 @@ CASES = [
      "e to the i x equals cos open paren x close paren plus i sin open paren x close paren"),
 
     # --- Negation prefix ---
-    (r"$a \not\approx b$", "a not approximately equal to b"),
+    (r"$a \not\approx b$", "[[ ˈeɪ ]] not approximately equal to b"),
 
     # --- \left / \right delimiters ---
-    (r"$\left(\frac{a+b}{c}\right)$", "open paren the quantity a plus b over c close paren"),
+    (r"$\left(\frac{a+b}{c}\right)$", "open paren the quantity [[ ˈeɪ ]] plus b over c close paren"),
 
     # --- \( ... \) delimiters ---
-    (r"\(2x + 3 = 7\)", "2x plus 3 equals 7"),
+    (r"\(2x + 3 = 7\)", "2 x plus 3 equals 7"),
 
     # --- Nested fractions ---
     (r"$\frac{\frac{1}{2}}{3}$", "1 over 2 over 3"),
