@@ -313,12 +313,14 @@ This approach grounds the LLM's responses in factual content without requiring a
 We evaluated candidate models using a sequential prompt benchmark that simulates a child's conversation.
 Twenty prompts progress from a simple greeting through factual questions to a creative storytelling request,
 building conversational context incrementally and exceeding the 2048-token context window to exercise trim behavior.
-Each model was assessed on three qualitative dimensions:
+Each conversation is scored on three dimensions by an LLM judge:
 
 \begin{itemize}[nosep]
-  \item \textbf{Succinctness}: Are short-answer responses concise? (Evaluated on 6 of the prompts.)
-  \item \textbf{Complexity}: Is the storytelling response sufficiently detailed? (Evaluated on 1 creative prompt.)
-  \item \textbf{Accuracy}: Are responses factually correct and free of hallucinations? (Evaluated across all 8 prompts.)
+  \item \textbf{Overall}: holistic 1--5 conversation quality.
+  \item \textbf{Fourth-wall breaks}: count of responses that broke the cartoon-animal persona
+    (e.g., mentioning being an AI, or naming the persona type).
+  \item \textbf{Factual errors}: count of responses on factual prompts (science, history, mythology) containing clear errors;
+    imaginative prompts (stories, game suggestions, preferences) are excluded.
 \end{itemize}
 
 \noindent Models were benchmarked on the target hardware (Jetson Orin Nano, 8\,GB) using two runtimes:
@@ -340,7 +342,8 @@ No temperature, top-$p$, or other sampling parameters were adjusted; all models 
 Repeating the same prompt sequence multiple times averages over two sources of variance:
 randomness in the model's own generated responses (due to sampling temperature),
 and randomness in the LLM-as-judge evaluation of qualitative scores.
-Table~\ref{tab:perf} summarizes latency and throughput;
+Table~\ref{tab:perf} summarizes latency and throughput,
+with Table~\ref{tab:probe} covering short filler-word inputs;
 Table~\ref{tab:quality} summarizes qualitative response quality.
 
 \begin{table}[h]
@@ -351,6 +354,17 @@ Table~\ref{tab:quality} summarizes qualitative response quality.
 Steady-state and post-trim TTFT over 5 runs $\times$ 20 conversational prompts = 100 samples per engine.
 All models use Q4\_K\_M quantization and 2048-token context.}
 \label{tab:perf}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\input{benchmark-probe-table}
+\caption{TTFT on short filler-word probe prompts (``Ummm'' and ``Okay''),
+with responses capped at one token.
+Each prompt arrives after 20 conversational turns, so the history is already built up;
+the purpose is to verify that no model exhibits pathological latency on minimal user inputs.}
+\label{tab:probe}
 \end{table}
 
 \input{quality-table}

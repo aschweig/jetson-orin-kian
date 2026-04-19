@@ -6,12 +6,13 @@ A local voice assistant running entirely on-device. Designed for NVIDIA Jetson O
 
 **Pipeline:** Mic → Silero VAD → faster-whisper (STT) → LLM → Piper (TTS) → Speaker
 
-Two LLM backends:
+Three LLM backends:
 
 | Backend | Model | How it runs |
 |---------|-------|-------------|
-| `llamacpp` (default) | Qwen3-4B-Instruct-2507 (GGUF) | In-process via llama-cpp-python |
-| `ollama` | Qwen3-4B (Q4_K_M) | Ollama server with OpenAI-compatible API |
+| `server` (default) | Qwen3-4B-Instruct-2507 (GGUF) | llama.cpp HTTP server (CUDA) |
+| `ollama` | Qwen3-4B (Q4_K_M) | Ollama server (OpenAI-compatible API) |
+| `llamacpp` (deprecated) | Qwen3-4B-Instruct-2507 (GGUF) | In-process via llama-cpp-python |
 
 All components run locally. No cloud APIs required.
 
@@ -129,13 +130,13 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
    - **Granite Guardian HAP 38M** ONNX (quantized INT8, ~126MB) into `models/granite-guardian-hap/` (safety classifier)
    - **Whisper** (`base.en`, ~150MB) is downloaded automatically on first run by faster-whisper
 
-5. **Rebuild llama-cpp-python with CUDA** (needed for the default backend):
+5. **Build llama.cpp with CUDA** (needed for the default `server` backend):
 
    ```bash
-   CMAKE_ARGS="-DGGML_CUDA=on" uv pip install --force-reinstall --no-binary llama-cpp-python --no-cache llama-cpp-python
+   bash scripts/build-prismml-llama.sh
    ```
 
-   This compiles llama.cpp from source with CUDA support. Takes several minutes.
+   This compiles the PrismML fork of llama.cpp with CUDA support. Takes several minutes.
    Skip this only if you plan to use `--backend ollama` exclusively.
 
 6. **Run:**
@@ -147,14 +148,14 @@ If no GPIO is available (e.g. non-Jetson machine), the LEDs are silently skipped
 ## Usage
 
 ```bash
-# Default: Qwen3-4B-Instruct-2507 via llama.cpp
+# Default: Qwen3-4B-Instruct-2507 via llama.cpp server
 uv run kian
 
 # Qwen3-4B via Ollama
 uv run kian --backend ollama
 
-# Custom model with llama.cpp
-uv run kian --backend llamacpp --model models/some-other-model.gguf
+# Custom GGUF model via llama.cpp server
+uv run kian --backend server --model some-other-model.gguf
 ```
 
 Press Q + Enter to quit.
@@ -164,19 +165,31 @@ Press Q + Enter to quit.
 ```
 kian/
 ├── kian/
-│   ├── app.py          # async pipeline wiring everything together
-│   ├── vad.py          # voice activity detection (Silero VAD)
-│   ├── stt.py          # speech-to-text (faster-whisper)
-│   ├── leds.py         # status LEDs via Jetson GPIO
-│   ├── llm.py          # backend selection + shared interface
-│   ├── llm_llamacpp.py # llama.cpp backend (Qwen3-4B-Instruct-2507)
-│   ├── llm_ollama.py   # Ollama backend (Qwen3-4B)
-│   ├── safety.py       # ONNX content safety classifier (Granite Guardian HAP)
-│   └── tts.py          # text-to-speech + playback thread (Piper)
-├── models/             # model files (not checked in)
+│   ├── app.py              # async pipeline wiring everything together
+│   ├── vad.py              # voice activity detection (Silero VAD)
+│   ├── stt.py              # speech-to-text (faster-whisper)
+│   ├── mic.py              # microphone input singleton
+│   ├── leds.py             # status LEDs via Jetson GPIO
+│   ├── llm.py              # backend selection + shared interface
+│   ├── llm_server.py       # llama.cpp HTTP server backend (default)
+│   ├── llm_ollama.py       # Ollama backend
+│   ├── llm_llamacpp.py     # llama-cpp-python backend (deprecated)
+│   ├── safety.py           # ONNX content safety classifier (Granite Guardian HAP)
+│   ├── naughty.py          # n-gram prohibited-content matcher
+│   ├── wiki.py             # Simple Wikipedia RAG (SQLite + FTS5)
+│   ├── latex_to_speech.py  # LaTeX math → spoken English converter
+│   └── tts.py              # text-to-speech + playback thread (Piper)
+├── models/                 # model files (not checked in)
 ├── scripts/
+│   ├── build-prismml-llama.sh  # build llama.cpp (CUDA) for the server backend
+│   ├── build-wiki-db.py        # build the local Wikipedia FTS5 index
 │   ├── download-models.sh
-│   └── enable_gpio.sh  # GPIO setup for status LEDs
+│   ├── enable_gpio.sh          # GPIO setup for status LEDs
+│   ├── benchmark-llm.py        # per-engine TTFT/tok-s benchmarks
+│   ├── benchmark-all.sh        # run the full benchmark suite N times
+│   ├── benchmark-table.py      # build docs/benchmark-table.tex + README table
+│   ├── qualitative-study.py    # LLM-judge qualitative evaluation
+│   └── quality-table.py        # build docs/quality-table.tex
 └── pyproject.toml
 ```
 
@@ -193,8 +206,9 @@ kian/
 
 Models are stored in `models/` and excluded from git. You can swap them:
 
-- **LLM (llama.cpp):** Any GGUF model works. Pass `--model path/to/model.gguf`.
-- **LLM (Ollama):** Pass `--model "model:tag"` with any model from the [Ollama library](https://ollama.com/library).
+- **LLM (`server`, default):** Any GGUF model under `models/`. Pass `--model some-model.gguf`.
+- **LLM (`ollama`):** Pass `--model "model:tag"` with any model from the [Ollama library](https://ollama.com/library).
+- **LLM (`llamacpp`, deprecated):** Same GGUF set as `server`, but with pathological post-trim TTFT; prefer `server`.
 - **TTS voice:** Browse [Piper voices](https://github.com/rhasspy/piper/blob/master/VOICES.md). Download the `.onnx` + `.onnx.json` pair.
 - **Whisper:** Change `MODEL_SIZE` in `kian/stt.py` (`tiny`, `base`, `small`, `medium`).
 

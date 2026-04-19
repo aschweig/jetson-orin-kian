@@ -19,6 +19,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CSV = PROJECT_ROOT / "benchmark-results-all.csv"
 LATEX_OUT = PROJECT_ROOT / "docs" / "benchmark-table.tex"
+PROBE_LATEX_OUT = PROJECT_ROOT / "docs" / "benchmark-probe-table.tex"
 README = PROJECT_ROOT / "README.md"
 
 # Display names: raw engine string -> pretty name
@@ -113,6 +114,46 @@ def make_latex(stats: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def summarize_probes(rows: list[dict]) -> list[dict]:
+    """Per-engine TTFT stats on the single-token probe prompts ("Ummm", "Okay")."""
+    rows = [r for r in rows if int(r.get("Tokens", 2)) == 1]
+
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        groups[r["Engine"]].append(r)
+
+    results = []
+    for engine, data in groups.items():
+        ttfts = [float(r["TTFT"]) for r in data]
+        if not ttfts:
+            continue
+        results.append({
+            "engine": engine,
+            "name": DISPLAY_NAMES.get(engine, engine),
+            "avg": sum(ttfts) / len(ttfts),
+            "max": max(ttfts),
+            "n": len(ttfts),
+        })
+
+    results.sort(key=lambda r: r["avg"])
+    return results
+
+
+def make_probe_latex(stats: list[dict]) -> str:
+    """LaTeX tabular body for the probe-prompt TTFT table."""
+    lines = []
+    lines.append(r"\begin{tabular}{l|r|r}")
+    lines.append(r"\toprule")
+    lines.append(r"Engine & Avg TTFT (s) & Max TTFT (s) \\")
+    lines.append(r"\midrule")
+    for r in stats:
+        name = r["name"].replace("_", r"\_")
+        lines.append(f"{name} & {r['avg']:.3f} & {r['max']:.3f} \\\\")
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    return "\n".join(lines)
+
+
 def make_markdown(stats: list[dict]) -> str:
     """Generate markdown table."""
     lines = []
@@ -182,6 +223,13 @@ def main():
     latex = make_latex(stats)
     LATEX_OUT.write_text(latex + "\n")
     print(f"\nWrote {LATEX_OUT}")
+
+    # Probe-prompt LaTeX (TTFT on "Ummm"/"Okay" filler inputs)
+    probe_stats = summarize_probes(rows)
+    if probe_stats:
+        probe_latex = make_probe_latex(probe_stats)
+        PROBE_LATEX_OUT.write_text(probe_latex + "\n")
+        print(f"Wrote {PROBE_LATEX_OUT}")
 
     # Update README
     md_table = make_markdown(stats)
