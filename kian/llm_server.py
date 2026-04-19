@@ -130,14 +130,20 @@ class ServerLLM:
         self._wiki_context = context
         self._pending_wiki_title = title
 
+    def estimate_tokens(self) -> int:
+        """Rough token estimate of current history (chars/3)."""
+        return sum(len(m["content"]) // 3 for m in self._history)
+
     def _trim_history(self):
         trim_high = NUM_CTX * 9 // 10
         trim_low = NUM_CTX * 7 // 10
-        total = sum(len(m["content"]) // 3 for m in self._history)
+        total = self.estimate_tokens()
         if total < trim_high:
             return
+        before_tokens = total
+        before_msgs = len(self._history)
         while len(self._history) > 3:
-            total = sum(len(m["content"]) // 3 for m in self._history)
+            total = self.estimate_tokens()
             if total < trim_low:
                 break
             self._last_trimmed = True
@@ -146,6 +152,9 @@ class ServerLLM:
                     self._on_evict_title(wiki_title)
             del self._history[1:3]
             del self._wiki_titles[1:3]
+        after_tokens = self.estimate_tokens()
+        print(f"[TRIM] {before_tokens} → {after_tokens} tokens "
+              f"({before_msgs} → {len(self._history)} msgs)")
 
     async def warm_cache(self):
         """Send a minimal request to pre-fill the server's KV cache after trim."""
@@ -164,13 +173,14 @@ class ServerLLM:
             resp = await loop.run_in_executor(None, lambda: urlopen(req, timeout=30))
             resp.close()
         except (URLError, OSError) as e:
-            print(f"[WARM] cache warming failed: {e}")
+            print(f"[END TRIM] cache warming failed: {e}")
             return
-        print(f"[WARM] KV cache pre-filled in {time.monotonic() - t0:.1f}s")
+        print(f"[END TRIM] KV cache pre-filled in {time.monotonic() - t0:.1f}s")
 
     def start_cache_warm(self):
         """Start background KV cache warming if a trim just occurred."""
         if self._last_trimmed:
+            print("[START TRIM] warming KV cache in background")
             self._warm_task = asyncio.create_task(self.warm_cache())
 
     async def join_cache_warm(self):

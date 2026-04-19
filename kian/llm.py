@@ -34,8 +34,9 @@ _HINT_STORY = (
     "to bring the subject to life. Aim for 100 to 300 words."
 )
 
+_STORY_ADJ = r"(?:(?:short|long|crazy|fun|funny|romantic|goofy|silly|sad|happy|bedtime|scary|spooky|cool|quick|wild|weird|exciting) )?"
 _STORY_RE = re.compile(
-    r"tell me a story|think of a story|make up a story|imagine a|tell the story|tell a story"
+    rf"tell me a {_STORY_ADJ}story|think of a {_STORY_ADJ}story|make up a {_STORY_ADJ}story|imagine a|tell the story|tell a {_STORY_ADJ}story"
     r"|describe a|describe the|paint a picture|can you imagine|tell me about a (time|place)"
     r"|(can|please|will you|do) share (an|your) idea for a (comedy|romance|drama|novel|book|movie|tv show|tv program|screenplay|scene|skit|joke|play|tiktok|youtube|video)",
     re.IGNORECASE,

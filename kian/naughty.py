@@ -35,8 +35,8 @@ class NaughtyDetector:
     def __init__(self):
         self._words: list[str] = []
 
-    def check(self, token: str) -> bool:
-        """Add token to the stream. Return True if a naughty phrase is detected."""
+    def check(self, token: str) -> str | None:
+        """Add token to the stream. Return the matched phrase, or None."""
         # Tokenize the new text into words
         new_words = _STRIP.sub("", token).lower().split()
         self._words.extend(new_words)
@@ -49,8 +49,8 @@ class NaughtyDetector:
         for n in range(1, min(len(self._words), _MAX_LEN) + 1):
             ngram = tuple(self._words[-n:])
             if ngram in _PHRASES:
-                return True
-        return False
+                return " ".join(ngram)
+        return None
 
     def reset(self):
         self._words.clear()
