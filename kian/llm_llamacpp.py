@@ -18,13 +18,14 @@ DEFAULT_MODEL = "qwen3-4b-instruct-2507-q4_k_m.gguf"
 
 
 class LlamaLLM:
-    def __init__(self, model_path: str | None = None, n_gpu_layers: int = -1):
+    def __init__(self, model_path: str | None = None, n_gpu_layers: int = -1, n_ctx: int = 2048):
         if model_path is None:
             model_path = str(PROJECT_ROOT / "models" / DEFAULT_MODEL)
         self.model_name = Path(model_path).name
+        self._n_ctx = n_ctx
         self._llm = Llama(
             model_path=model_path,
-            n_ctx=2048,
+            n_ctx=self._n_ctx,
             n_gpu_layers=n_gpu_layers,
             n_batch=256,
             flash_attn=True,
@@ -46,13 +47,20 @@ class LlamaLLM:
         self._pending_wiki_title = title
 
     def _trim_history(self):
-        """Drop oldest message pairs to stay within context limit."""
-        max_tokens = 1500
+        """Drop oldest message pairs to stay within context limit.
+
+        Uses a band strategy: trim to 70% when exceeding 90%, so we don't
+        invalidate the KV cache on every subsequent prompt.
+        """
+        trim_high = self._n_ctx * 9 // 10
+        trim_low = self._n_ctx * 7 // 10
+        total = sum(len(m["content"]) // 3 for m in self._history)
+        if total < trim_high:
+            return
         while len(self._history) > 3:
             total = sum(len(m["content"]) // 3 for m in self._history)
-            if total < max_tokens:
+            if total < trim_low:
                 break
-            # Evict wiki titles from the dropped pair
             for wiki_title in self._wiki_titles[1:3]:
                 if wiki_title and self._on_evict_title:
                     self._on_evict_title(wiki_title)

@@ -43,10 +43,14 @@ class OllamaLLM:
             )
 
     def _trim_history(self):
-        max_tokens = 1500
+        trim_high = NUM_CTX * 9 // 10
+        trim_low = NUM_CTX * 7 // 10
+        total = sum(len(m["content"]) // 3 for m in self._history)
+        if total < trim_high:
+            return
         while len(self._history) > 3:
             total = sum(len(m["content"]) // 3 for m in self._history)
-            if total < max_tokens:
+            if total < trim_low:
                 break
             del self._history[1:3]
 

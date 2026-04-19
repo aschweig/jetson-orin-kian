@@ -74,6 +74,12 @@ def summarize(rows: list[dict]) -> list[dict]:
         mean_vram = sum(vram_vals) / n if vram_vals else 0
         mean_total_ram = sum(total_ram_vals) / n if total_ram_vals else 0
 
+        # Post-trim TTFT: rows where Trimmed > 0
+        trim_rows = [r for r in data if int(r.get("Trimmed", 0)) > 0]
+        trim_events = len(trim_rows)
+        trim_ttft_sum = sum(float(r["TTFT"]) for r in trim_rows)
+        avg_trim_ttft = trim_ttft_sum / trim_events if trim_events else 0
+
         results.append({
             "engine": engine,
             "name": DISPLAY_NAMES.get(engine, engine),
@@ -85,6 +91,8 @@ def summarize(rows: list[dict]) -> list[dict]:
             "vram": mean_vram,
             "total_ram": mean_total_ram,
             "n": n,
+            "trim_events": trim_events,
+            "avg_trim_ttft": avg_trim_ttft,
         })
 
     results.sort(key=lambda r: r["mean_ttft"])
@@ -172,12 +180,13 @@ def main():
     stats = summarize(rows)
 
     # Print summary to stdout
-    print(f"{'Engine':<40} {'TTFT':>8} {'SE':>6} {'p95':>8} {'tok/s':>6} {'GPU%':>5} {'VRAM':>6} {'RAM':>6}  n")
-    print("-" * 100)
+    print(f"{'Engine':<40} {'TTFT':>8} {'SE':>6} {'p95':>8} {'tok/s':>6} {'GPU%':>5} {'VRAM':>6} {'RAM':>6} {'Trims':>6} {'TrimTTFT':>9}  n")
+    print("-" * 115)
     for r in stats:
+        trim_str = f"{r['avg_trim_ttft']:.3f}" if r['trim_events'] else "---"
         print(f"{r['name']:<40} {r['mean_ttft']:>8.3f} {r['se']:>6.3f} "
               f"{r['p95_ttft']:>8.3f} {r['tps']:>6.1f} {r['gpu']:>5.0f} "
-              f"{r['vram']:>5.1f}G {r['total_ram']:>5.1f}G  {r['n']}")
+              f"{r['vram']:>5.1f}G {r['total_ram']:>5.1f}G {r['trim_events']:>6} {trim_str:>9}  {r['n']}")
 
     # Write LaTeX
     latex = make_latex(stats)

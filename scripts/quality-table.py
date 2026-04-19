@@ -51,15 +51,60 @@ scored by {evaluator}. The columns are:
 
 {table}
 
-Write 1-2 short paragraphs (suitable for a \\subsection in a LaTeX litepaper) \
-discussing conclusions from this table. Highlight the IBM Granite and Qwen3 \
-model families, and Meta Llama, as contenders for on-device voice assistance. \
-Note trade-offs (accuracy vs verbosity, model size, etc). Be concise and \
-data-driven — cite numbers from the table.
+Below is a previous version of the discussion. Use it as a model for style \
+and structure. Update all numbers and claims to match the new data above. \
+Add coverage of any new models in the table. Remove coverage of models no \
+longer in the table. Correct any claims that the new data does not support.
 
-Output ONLY the LaTeX body text (no \\subsection, no \\begin{{document}}). \
+--- Previous discussion ---
+Among the models evaluated, Qwen3-4B under llama.cpp produced no factual \
+errors, no verbose responses, and no weak prose across all 10 runs, while \
+Granite 4.0 Horizon Micro matched it on accuracy with only a slight weakness \
+in prose quality (1.1). The smaller Granite 3.3-2B kept errors near zero \
+(0.3 avg) with clean, concise output. Llama 3.2-3B was competitive at 0.8 \
+errors on average with low verbosity (0.3 chatty), though its error ceiling \
+was higher (max 3). Notably, inference engine choice had a pronounced effect: \
+Qwen3-4B produced no errors under llama.cpp but degraded under its Ollama \
+variant (1.8 errors avg, 0.8 chatty), and Granite 3.3-2B similarly worsened \
+from 0.3 to 1.2 errors. Since the two runtimes may use different \
+quantization implementations, prompt templates, or sampling defaults, this \
+suggests that runtime configuration matters as much as model selection itself.
+
+A clear accuracy--verbosity trade-off emerged across the Granite family. The \
+full-precision \\textbf{{Granite 4.0 Micro}} produced only 1.0 errors on \
+average but scored worst on prose quality (3.0), generating stilted \
+longer-form responses. Its IQ4-quantized variant matched on accuracy while \
+improving prose to 2.0, and the 3B Ollama variant (\\textbf{{Granite 4-3B}}) \
+traded slightly higher error rates (1.1) for markedly better prose (1.4) and \
+modest verbosity (0.2). \\textbf{{Ministral-3 3B}} illustrated the opposite \
+failure mode: reasonable accuracy (1.2) but extreme chattiness (2.1), which \
+is particularly undesirable in a child-facing voice interface where verbose \
+responses discourage the back-and-forth dialogue that drives learning. \
+\\textbf{{Qwen3.5-2B}} showed the cost of aggressive size reduction, with \
+errors climbing from 2.0 under llama.cpp to 3.6 under Ollama---the latter \
+hallucinating that ``the fastest fish in water is the dolphin.'' For this \
+use case, the results favor Qwen3-4B (llama.cpp) and Granite 4.0 Horizon \
+Micro as the most promising options among the models tested.
+
+\\subsection{{Benchmark Limitations}}
+
+This benchmark is a task-specific internal evaluation, not a general \
+capability ranking. The prompt set is small (8 prompts) and English-only, \
+covering a narrow slice of the topics a child might ask about. Qualitative \
+scores were assigned by an LLM judge (Claude Opus 4.6) rather than human \
+raters, which may not capture all dimensions of child-appropriateness such \
+as tone, pacing, or emotional register. The benchmark also does not evaluate \
+the content safety pipeline or the LaTeX-to-speech system. Results should be \
+interpreted as a comparative signal for model selection on this hardware, \
+not as absolute quality claims.
+--- End previous discussion ---
+
+Write 1-2 short paragraphs of discussion followed by a Benchmark Limitations \
+subsection as shown above. Update the prompt count if it has changed.
+
+Output ONLY the LaTeX body text (no \\begin{{document}}). \
 Use \\textbf{{Model Name}} when first mentioning a model. Do not use \
-markdown. Do not wrap in a code block."""
+markdown. Do not wrap in a code block. Do not use thinking tags."""
 
 
 def load_csv(path: Path) -> tuple[dict, dict, str]:
@@ -92,6 +137,10 @@ def load_csv(path: Path) -> tuple[dict, dict, str]:
 
 def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     """Generate a LaTeX fragment: quality table + discussion paragraph."""
+    # Count prompts from benchmark file
+    prompts_file = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
+    n_prompts = len([l for l in prompts_file.read_text().strip().splitlines() if l.strip()]) if prompts_file.exists() else "?"
+
     # Sort by mean errors ascending, then prose descending
     engines_sorted = sorted(
         scores.keys(),
@@ -164,7 +213,7 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     evaluator_tex = evaluator.replace("_", r"\_")
     lines.append(
         r"\caption{Qualitative response quality across "
-        + f"{n_sample} benchmark runs (8 prompts each). "
+        + f"{n_sample} benchmark runs ({n_prompts} prompts each). "
         + r"All metrics are lower-is-better: Err = factual errors per conversation, "
         + r"Chatty = verbose or repetitive responses (of 5), "
         + r"Poor Prose = weak explanatory/story responses (of 3). "
@@ -209,8 +258,10 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
             capture_output=True, text=True, timeout=120,
         )
         if result.returncode == 0 and result.stdout.strip():
-            # Strip non-ASCII from discussion to avoid pdflatex errors
-            discussion = "".join(c if ord(c) < 128 else "*" for c in result.stdout.strip())
+            # Strip thinking tags and non-ASCII to avoid pdflatex errors
+            import re
+            discussion = re.sub(r"<think>.*?</think>\s*", "", result.stdout.strip(), flags=re.DOTALL)
+            discussion = "".join(c if ord(c) < 128 else "*" for c in discussion)
         else:
             print("    WARNING: claude -p failed, using placeholder", file=sys.stderr)
             discussion = r"\textit{Discussion to be written.}"

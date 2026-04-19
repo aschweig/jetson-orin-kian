@@ -128,10 +128,14 @@ class ServerLLM:
         self._pending_wiki_title = title
 
     def _trim_history(self):
-        max_tokens = 1500
+        trim_high = NUM_CTX * 9 // 10
+        trim_low = NUM_CTX * 7 // 10
+        total = sum(len(m["content"]) // 3 for m in self._history)
+        if total < trim_high:
+            return
         while len(self._history) > 3:
             total = sum(len(m["content"]) // 3 for m in self._history)
-            if total < max_tokens:
+            if total < trim_low:
                 break
             for wiki_title in self._wiki_titles[1:3]:
                 if wiki_title and self._on_evict_title:

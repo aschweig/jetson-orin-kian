@@ -28,7 +28,7 @@ LOG_DIR = PROJECT_ROOT / "benchmark-logs"
 SYSTEM_PROMPT = (
     "You are Kian, a helpful educating cartoon animal -- but it's a secret. "
     "You are talking to an imaginative and curious child in grade 3. "
-    "Unless you are explaining, teaching, or telling a story, reply in one or two short sentences. "
+    "Reply in three to five sentences. Be detailed and enthusiastic. "
     "Your output will be spoken aloud, so never use markdown, asterisks, bullet points, emojis, "
     "or any formatting. Use plain spoken English only."
 )
@@ -38,6 +38,19 @@ def load_prompts(path: Path) -> list[str]:
     """Load prompts from a text file (one per line, blank lines ignored)."""
     lines = path.read_text().strip().splitlines()
     return [l.strip() for l in lines if l.strip()]
+
+
+def read_meminfo() -> tuple[int, int]:
+    """Read swap usage and page cache from /proc/meminfo. Returns (swap_used_mb, cached_mb)."""
+    info = {}
+    with open("/proc/meminfo") as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) >= 2:
+                info[parts[0].rstrip(":")] = int(parts[1])
+    swap_used = (info.get("SwapTotal", 0) - info.get("SwapFree", 0)) // 1024
+    cached = info.get("Cached", 0) // 1024
+    return swap_used, cached
 
 
 def append_log(log_path: Path, engine_name: str, prompts: list[str],
@@ -177,12 +190,31 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
     gpu_pct, vram_gb, total_gb = ollama_check_offload(model)
     time.sleep(2)
 
+    trim_high = 2048 * 9 // 10
+    trim_low = 2048 * 7 // 10
+
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
     results = []
     responses = []
 
     for i, prompt in enumerate(prompts):
         history.append({"role": "user", "content": prompt})
+
+        # Trim: when we exceed 90% of context, drop turns until we're at 70%
+        total_est = sum(len(m["content"]) // 3 for m in history)
+        trimmed = 0
+        if total_est >= trim_high:
+            while len(history) > 3:
+                total_est = sum(len(m["content"]) // 3 for m in history)
+                if total_est < trim_low:
+                    break
+                del history[1:3]
+                trimmed += 1
+            total_est = sum(len(m["content"]) // 3 for m in history)
+        if trimmed:
+            print(f"  [TRIM] dropped {trimmed} turn(s), "
+                  f"~{total_est} tokens remain after trim (trigger at {trim_high}, target {trim_low}), "
+                  f"{len(history)} messages", file=sys.stderr)
 
         body = json.dumps({
             "model": model,
@@ -234,7 +266,9 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
             "gpu_pct": gpu_pct or 0,
             "vram_gb": vram_gb or 0,
             "total_ram_gb": total_gb or 0,
+            "trimmed": trimmed,
         }
+        row["swap_mb"], row["cache_mb"] = read_meminfo()
         results.append(row)
         response_text = "".join(full_response)
         responses.append(response_text)
@@ -242,6 +276,10 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
               f"tokens={token_count}  "
               f"total={row['total_time']:.1f}s  "
               f"tok/s={row['tok_per_sec']:.1f}")
+        snippet = response_text.replace("\n", " ")[:120]
+        if len(response_text) > 120:
+            snippet += "..."
+        print(f"    > {snippet}")
 
         history.append({"role": "assistant", "content": response_text})
 
@@ -351,12 +389,31 @@ def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[di
         print(f"  Model loaded.")
         time.sleep(2)
 
+        trim_high = 2048 * 9 // 10
+        trim_low = 2048 * 7 // 10
+
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
         results = []
         responses = []
 
         for i, prompt in enumerate(prompts):
             history.append({"role": "user", "content": prompt})
+
+            # Trim: when we exceed 90% of context, drop turns until we're at 70%
+            total_est = sum(len(m["content"]) // 3 for m in history)
+            trimmed = 0
+            if total_est >= trim_high:
+                while len(history) > 3:
+                    total_est = sum(len(m["content"]) // 3 for m in history)
+                    if total_est < trim_low:
+                        break
+                    del history[1:3]
+                    trimmed += 1
+                total_est = sum(len(m["content"]) // 3 for m in history)
+            if trimmed:
+                print(f"  [TRIM] dropped {trimmed} turn(s), "
+                      f"~{total_est} tokens remain after trim (trigger at {trim_high}, target {trim_low}), "
+                      f"{len(history)} messages", file=sys.stderr)
 
             body = json.dumps({
                 "model": model_name,
@@ -415,7 +472,9 @@ def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[di
                 "gpu_pct": 100,
                 "vram_gb": model_size_gb,
                 "total_ram_gb": model_size_gb,
+                "trimmed": trimmed,
             }
+            row["swap_mb"], row["cache_mb"] = read_meminfo()
             results.append(row)
             response_text = "".join(full_response)
             responses.append(response_text)
@@ -443,6 +502,7 @@ LLAMACPP_MODELS = {
     "ibm-granite_granite-4.0-micro-IQ4_XS": {"file": "ibm-granite_granite-4.0-micro-IQ4_XS.gguf"},
     "granite-4.0-micro-Q4_K_M": {"file": "granite-4.0-micro-Q4_K_M.gguf"},
     "granite-4.0-h-micro-Q4_K_M": {"file": "granite-4.0-h-micro-Q4_K_M.gguf"},
+    "granite-4.0-h-micro-Q4_K_M-c1024": {"file": "granite-4.0-h-micro-Q4_K_M.gguf", "n_ctx": 1024},
     "qwen3-4b-instruct-2507-q4_k_m": {"file": "qwen3-4b-instruct-2507-q4_k_m.gguf"},
 }
 
@@ -466,7 +526,7 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
     print(f"  Loading model (n_gpu_layers={n_gpu_layers}) ...", file=sys.stderr)
     llm = Llama(
         model_path=model_path,
-        n_ctx=2048,
+        n_ctx=model_info.get("n_ctx", 2048),
         n_gpu_layers=n_gpu_layers,
         n_batch=256,
         flash_attn=True,
@@ -482,12 +542,32 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
     )
     time.sleep(2)
 
+    n_ctx = model_info.get("n_ctx", 2048)
+    trim_high = n_ctx * 9 // 10   # start trimming at 90%
+    trim_low = n_ctx * 7 // 10    # trim down to 70%
+
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
     results = []
     responses = []
 
     for i, prompt in enumerate(prompts):
         history.append({"role": "user", "content": prompt})
+
+        # Trim: when we exceed 90% of context, drop turns until we're at 70%
+        total_est = sum(len(m["content"]) // 3 for m in history)
+        trimmed = 0
+        if total_est >= trim_high:
+            while len(history) > 3:
+                total_est = sum(len(m["content"]) // 3 for m in history)
+                if total_est < trim_low:
+                    break
+                del history[1:3]
+                trimmed += 1
+            total_est = sum(len(m["content"]) // 3 for m in history)
+        if trimmed:
+            print(f"  [TRIM] dropped {trimmed} turn(s), "
+                  f"~{total_est} tokens remain after trim (trigger at {trim_high}, target {trim_low}), "
+                  f"{len(history)} messages", file=sys.stderr)
 
         t0 = time.monotonic()
         ttft = None
@@ -518,7 +598,9 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
             "gpu_pct": gpu_pct or 0,
             "vram_gb": vram_gb,
             "total_ram_gb": total_ram_gb,
+            "trimmed": trimmed,
         }
+        row["swap_mb"], row["cache_mb"] = read_meminfo()
         results.append(row)
         response_text = "".join(full_response)
         responses.append(response_text)
@@ -526,6 +608,10 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
               f"tokens={token_count}  "
               f"total={row['total_time']:.1f}s  "
               f"tok/s={row['tok_per_sec']:.1f}", file=sys.stderr)
+        snippet = response_text.replace("\n", " ")[:120]
+        if len(response_text) > 120:
+            snippet += "..."
+        print(f"    > {snippet}", file=sys.stderr)
 
         history.append({"role": "assistant", "content": response_text})
 
@@ -556,21 +642,71 @@ def bench_llamacpp(model_name: str, prompts: list[str], log_path: Path) -> list[
 
     # Launch subprocess: run this same script with --_subprocess flag
     cmd = [
-        sys.executable, __file__,
+        sys.executable, "-u", __file__,  # -u: unbuffered stdio
         "--_subprocess", model_name,
         "--prompts", str(DEFAULT_PROMPTS),
         "--_log_path", str(log_path),
     ]
-    # Pass prompts via the prompts file (already the default)
-    result = sp.run(cmd, capture_output=True, text=True, timeout=600)
+    # Capture stdout (JSON results) while streaming stderr live to the terminal.
+    # Two threads, two pipes — never let two readers touch the same pipe (which
+    # is what caused earlier ValueError: I/O operation on closed file).
+    import threading
+    proc = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.PIPE, text=True, bufsize=1)
 
-    # Print stderr (progress messages) to our stderr
-    if result.stderr:
-        for line in result.stderr.splitlines():
-            print(line)
+    stdout_chunks: list[str] = []
+    stderr_done = threading.Event()
+    stdout_done = threading.Event()
 
-    if result.returncode != 0:
-        raise RuntimeError(f"Subprocess failed (exit {result.returncode})")
+    def _forward_stderr():
+        try:
+            for line in proc.stderr:
+                print(line.rstrip(), file=sys.stderr, flush=True)
+        except (ValueError, OSError):
+            pass
+        finally:
+            stderr_done.set()
+
+    def _read_stdout():
+        try:
+            stdout_chunks.append(proc.stdout.read())
+        except (ValueError, OSError):
+            pass
+        finally:
+            stdout_done.set()
+
+    stderr_thread = threading.Thread(target=_forward_stderr, daemon=True)
+    stdout_thread = threading.Thread(target=_read_stdout, daemon=True)
+    stderr_thread.start()
+    stdout_thread.start()
+
+    try:
+        proc.wait(timeout=1800)
+    except sp.TimeoutExpired:
+        proc.kill()
+        stderr_done.wait(timeout=2)
+        stdout_done.wait(timeout=2)
+        raise
+
+    stderr_done.wait(timeout=5)
+    stdout_done.wait(timeout=5)
+
+    if proc.returncode != 0:
+        raise RuntimeError(f"Subprocess failed (exit {proc.returncode})")
+
+    # Replace result-like object so rest of function works unchanged
+    class _R:
+        pass
+    result = _R()
+    result.stdout = "".join(stdout_chunks)
+    result.returncode = proc.returncode
+
+    # Show memory state before GPU reclaim
+    try:
+        mem = sp.run(["free", "-h"], capture_output=True, text=True)
+        for line in mem.stdout.strip().splitlines():
+            print(f"  [MEM] {line}")
+    except Exception:
+        pass
 
     # Wait for Jetson unified memory to be reclaimed after subprocess exits.
     print("  Waiting for GPU memory reclaim ...")
@@ -601,11 +737,15 @@ ALL_ENGINES = [
     "llamacpp:ibm-granite_granite-4.0-micro-IQ4_XS",
     "llamacpp:granite-4.0-micro-Q4_K_M",
     "llamacpp:granite-4.0-h-micro-Q4_K_M",
+    "llamacpp:granite-4.0-h-micro-Q4_K_M-c1024",
     "llamacpp:qwen3-4b-instruct-2507-q4_k_m",
 ]
 
 
 def main():
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+
     parser = argparse.ArgumentParser(description="Benchmark LLM backends")
     parser.add_argument(
         "--engines",
@@ -661,11 +801,13 @@ def main():
             print(f"\n  ERROR: {engine} failed: {e}")
             print(f"  Skipping to next engine.\n")
 
+        print("", file=sys.stderr)
+
     # Print CSV summary
-    header = "Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB"
+    header = "Engine,PromptNo,TTFT,TotalTime,Tokens,TokPerSec,GPU%,VRAM_GB,TotalRAM_GB,Trimmed,SwapMB,CacheMB"
     lines = [header]
     for r in all_results:
-        lines.append(f"{r['engine']},{r['prompt_no']},{r['ttft']},{r['total_time']},{r['tokens']},{r['tok_per_sec']},{r['gpu_pct']},{r['vram_gb']},{r['total_ram_gb']}")
+        lines.append(f"{r['engine']},{r['prompt_no']},{r['ttft']},{r['total_time']},{r['tokens']},{r['tok_per_sec']},{r['gpu_pct']},{r['vram_gb']},{r['total_ram_gb']},{r['trimmed']},{r['swap_mb']},{r['cache_mb']}")
 
     print(f"\n{'='*60}")
     print("CSV Results:")
