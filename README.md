@@ -236,7 +236,7 @@ pulseaudio --start
 
 ## Benchmarks (Jetson Orin Nano, 8GB)
 
-Measured over 5 runs x 8 prompts per engine. All models use Q4_K_M quantization and 2048-token context.
+Measured over 5 runs x 20 conversational prompts per engine. All models use Q4_K_M quantization and 2048-token context.
 
 | Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |
 |--------|-----------|----------|-------|------|-----|

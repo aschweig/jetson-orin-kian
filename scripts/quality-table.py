@@ -44,63 +44,34 @@ on-device voice assistants for children, running on a Jetson Orin Nano.
 Below is a qualitative evaluation table. Each row is a small language model \
 evaluated across {n} independent multi-turn conversations with a rubric \
 scored by {evaluator}. The columns are:
-- Err Avg / Err Max: factual errors per conversation (lower is better)
-- Chatty: how many prompts were overly verbose or used repetitive phrases (lower is better, max 5)
-- Poor Prose: how many of the 3 longer-form responses had weak prose (lower is better, max 3)
-- Example flub: a representative factual error
+- Overall: holistic conversation quality, 1-5 (higher is better)
+- 4th-Wall: count of responses that broke the cartoon-animal persona (lower is better)
+- Fact Err Avg / Max: factual errors per conversation on factual prompts (lower is better)
+- Example flub: a representative broken-character moment, factual howler, or nonsensical phrase
 
 {table}
 
-Below is a previous version of the discussion. Use it as a model for style \
-and structure. Update all numbers and claims to match the new data above. \
-Add coverage of any new models in the table. Remove coverage of models no \
-longer in the table. Correct any claims that the new data does not support.
+Write 1-2 short paragraphs of discussion contrasting the strongest and weakest \
+performers. Call out any cases where a model is strong on one axis but weak on \
+another (e.g., high Overall but frequent fourth-wall breaks, or low factual \
+errors but stilted prose). Note differences between Ollama and llama.cpp (server) \
+variants of the same base model if present. Close with a sentence identifying the \
+best choices for this use case.
 
---- Previous discussion ---
-Among the models evaluated, Qwen3-4B under llama.cpp produced no factual \
-errors, no verbose responses, and no weak prose across all 10 runs, while \
-Granite 4.0 Horizon Micro matched it on accuracy with only a slight weakness \
-in prose quality (1.1). The smaller Granite 3.3-2B kept errors near zero \
-(0.3 avg) with clean, concise output. Llama 3.2-3B was competitive at 0.8 \
-errors on average with low verbosity (0.3 chatty), though its error ceiling \
-was higher (max 3). Notably, inference engine choice had a pronounced effect: \
-Qwen3-4B produced no errors under llama.cpp but degraded under its Ollama \
-variant (1.8 errors avg, 0.8 chatty), and Granite 3.3-2B similarly worsened \
-from 0.3 to 1.2 errors. Since the two runtimes may use different \
-quantization implementations, prompt templates, or sampling defaults, this \
-suggests that runtime configuration matters as much as model selection itself.
+Then add a Benchmark Limitations subsection with content like:
 
-A clear accuracy--verbosity trade-off emerged across the Granite family. The \
-full-precision \\textbf{{Granite 4.0 Micro}} produced only 1.0 errors on \
-average but scored worst on prose quality (3.0), generating stilted \
-longer-form responses. Its IQ4-quantized variant matched on accuracy while \
-improving prose to 2.0, and the 3B Ollama variant (\\textbf{{Granite 4-3B}}) \
-traded slightly higher error rates (1.1) for markedly better prose (1.4) and \
-modest verbosity (0.2). \\textbf{{Ministral-3 3B}} illustrated the opposite \
-failure mode: reasonable accuracy (1.2) but extreme chattiness (2.1), which \
-is particularly undesirable in a child-facing voice interface where verbose \
-responses discourage the back-and-forth dialogue that drives learning. \
-\\textbf{{Qwen3.5-2B}} showed the cost of aggressive size reduction, with \
-errors climbing from 2.0 under llama.cpp to 3.6 under Ollama---the latter \
-hallucinating that ``the fastest fish in water is the dolphin.'' For this \
-use case, the results favor Qwen3-4B (llama.cpp) and Granite 4.0 Horizon \
-Micro as the most promising options among the models tested.
-
+--- Example Limitations subsection ---
 \\subsection{{Benchmark Limitations}}
 
-This benchmark is a task-specific internal evaluation, not a general \
-capability ranking. The prompt set is small (8 prompts) and English-only, \
-covering a narrow slice of the topics a child might ask about. Qualitative \
-scores were assigned by an LLM judge (Claude Opus 4.6) rather than human \
-raters, which may not capture all dimensions of child-appropriateness such \
-as tone, pacing, or emotional register. The benchmark also does not evaluate \
-the content safety pipeline or the LaTeX-to-speech system. Results should be \
-interpreted as a comparative signal for model selection on this hardware, \
-not as absolute quality claims.
---- End previous discussion ---
-
-Write 1-2 short paragraphs of discussion followed by a Benchmark Limitations \
-subsection as shown above. Update the prompt count if it has changed.
+This benchmark is a task-specific internal evaluation, not a general capability \
+ranking. The prompt set is small ({n_prompts} prompts) and English-only, covering \
+a narrow slice of the topics a child might ask about. Qualitative scores were \
+assigned by an LLM judge ({evaluator}) rather than human raters, which may not \
+capture all dimensions of child-appropriateness such as tone, pacing, or emotional \
+register. The benchmark also does not evaluate the content safety pipeline or the \
+LaTeX-to-speech system. Results should be interpreted as a comparative signal for \
+model selection on this hardware, not as absolute quality claims.
+--- End example ---
 
 Output ONLY the LaTeX body text (no \\begin{{document}}). \
 Use \\textbf{{Model Name}} when first mentioning a model. Do not use \
@@ -110,7 +81,7 @@ markdown. Do not wrap in a code block. Do not use thinking tags."""
 def load_csv(path: Path) -> tuple[dict, dict, str]:
     """Load CSV and return (scores_by_engine, best_flubs, evaluator).
 
-    scores_by_engine: {engine: [{"errors": int, "chatty": int, ...}, ...]}
+    scores_by_engine: {engine: [{"overall": int, "fourth_wall": int, ...}, ...]}
     best_flubs: {engine: str}
     evaluator: str
     """
@@ -122,9 +93,9 @@ def load_csv(path: Path) -> tuple[dict, dict, str]:
         for row in csv.DictReader(f):
             engine = row["Engine"]
             scores[engine].append({
-                "errors": int(row["Errors"]),
-                "chatty": int(row["Chatty"]),
-                "poor_prose": int(row["PoorProse"]),
+                "overall": int(row["Overall"]),
+                "fourth_wall": int(row["FourthWall"]),
+                "factual_errors": int(row["FactualErrors"]),
                 "flub": row["Flub"],
             })
             if row.get("BestFlub"):
@@ -141,12 +112,12 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     prompts_file = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
     n_prompts = len([l for l in prompts_file.read_text().strip().splitlines() if l.strip()]) if prompts_file.exists() else "?"
 
-    # Sort by mean errors ascending, then prose descending
+    # Sort by mean overall descending, then factual errors ascending as tiebreaker
     engines_sorted = sorted(
         scores.keys(),
         key=lambda e: (
-            sum(d["errors"] for d in scores[e]) / len(scores[e]),
-            sum(d["poor_prose"] for d in scores[e]) / len(scores[e]),
+            -sum(d["overall"] for d in scores[e]) / len(scores[e]),
+            sum(d["factual_errors"] for d in scores[e]) / len(scores[e]),
         ),
     )
 
@@ -157,7 +128,7 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         r"\small",
         r"\begin{tabular}{l|r|r|r|r}",
         r"\toprule",
-        r"Engine & Err Avg & Err Max & Chatty & Poor Prose \\",
+        r"Engine & Overall & 4th-Wall & Fact Err Avg & Fact Err Max \\",
         r"\midrule",
     ]
 
@@ -170,31 +141,25 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         n = len(s)
         if n_sample is None:
             n_sample = n
-        err_avg = sum(d["errors"] for d in s) / n
-        err_max = max(d["errors"] for d in s)
-        chatty_avg = sum(d["chatty"] for d in s) / n
-        poor_prose_avg = sum(d["poor_prose"] for d in s) / n
+        overall_avg = sum(d["overall"] for d in s) / n
+        fw_avg = sum(d["fourth_wall"] for d in s) / n
+        fact_avg = sum(d["factual_errors"] for d in s) / n
+        fact_max = max(d["factual_errors"] for d in s)
         flub = best_flubs.get(engine, "")
 
         # Plain-text row for LLM prompt (ASCII-only flub)
         flub_ascii = "".join(c if ord(c) < 128 else "*" for c in flub)
-        if flub_ascii:
-            plain_rows.append(
-                f"{name:<35} {err_avg:>5.1f} {err_max:>5} "
-                f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  "
-                f'"{flub_ascii}"'
-            )
-        else:
-            plain_rows.append(
-                f"{name:<35} {err_avg:>5.1f} {err_max:>5} "
-                f"{chatty_avg:>6.1f} {poor_prose_avg:>5.1f}  ---"
-            )
+        flub_plain = f'"{flub_ascii}"' if flub_ascii else "---"
+        plain_rows.append(
+            f"{name:<35} {overall_avg:>7.1f} {fw_avg:>8.1f} "
+            f"{fact_avg:>7.1f} {fact_max:>7}  {flub_plain}"
+        )
 
         # Scores row
         name_tex = name.replace("_", r"\_")
         lines.append(
-            f"{name_tex} & {err_avg:.1f} & {err_max} & "
-            f"{chatty_avg:.1f} & {poor_prose_avg:.1f} \\\\"
+            f"{name_tex} & {overall_avg:.1f} & {fw_avg:.1f} & "
+            f"{fact_avg:.1f} & {fact_max} \\\\"
         )
 
         # Flub row (for second table) — strip non-ASCII to avoid pdflatex errors
@@ -214,9 +179,9 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     lines.append(
         r"\caption{Qualitative response quality across "
         + f"{n_sample} benchmark runs ({n_prompts} prompts each). "
-        + r"All metrics are lower-is-better: Err = factual errors per conversation, "
-        + r"Chatty = verbose or repetitive responses (of 5), "
-        + r"Poor Prose = weak explanatory/story responses (of 3). "
+        + r"Overall is a 1--5 holistic score (higher is better); "
+        + r"4th-Wall counts responses breaking the cartoon-animal persona; "
+        + r"Fact Err counts factual errors on factual prompts (lower is better). "
         + "Evaluated by " + evaluator_tex + ".}"
     )
     lines.append(r"\label{tab:quality}")
@@ -242,18 +207,18 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
     # --- Discussion (outside table environment) ---
     # Generate discussion via claude -p
     plain_header = (
-        f"{'Engine':<35} {'ErrAvg':>6} {'ErrMax':>6} "
-        f"{'Chatty':>6} {'PoorProse':>9}  Example flub"
+        f"{'Engine':<35} {'Overall':>7} {'4th-Wall':>8} "
+        f"{'FactAvg':>7} {'FactMax':>7}  Example flub"
     )
     plain_table = plain_header + "\n" + "\n".join(plain_rows)
     prompt = DISCUSSION_PROMPT.format(
-        n=n_sample, evaluator=evaluator, table=plain_table,
+        n=n_sample, n_prompts=n_prompts, evaluator=evaluator, table=plain_table,
     )
 
     print("  Generating discussion via claude -p ...", file=sys.stderr)
     try:
         result = subprocess.run(
-            ["claude", "-p"],
+            ["claude", "-p", "--model", "claude-opus-4-6"],
             input=prompt,
             capture_output=True, text=True, timeout=120,
         )

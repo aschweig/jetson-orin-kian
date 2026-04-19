@@ -19,6 +19,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CSV = PROJECT_ROOT / "quality-results.csv"
 
+# Cache-warming probe prompts — excluded from qualitative evaluation because
+# their responses are capped at 1 token by the benchmark runner.
+SINGLE_TOKEN_PROMPTS = {"Ummm", "Okay"}
+
 DISPLAY_NAMES = {
     "llamacpp:Qwen3.5-2B-Q4_K_M": "llamacpp:Qwen3.5-2B",
     "llamacpp:granite-3.3-2b-instruct-Q4_K_M": "llamacpp:Granite 3.3-2B",
@@ -38,51 +42,59 @@ DISPLAY_NAMES = {
 }
 
 RUBRIC = """\
-You are evaluating an AI assistant talking to a young child (grade 3).
-You will be given 8 prompt-response pairs from one conversation.
+You are evaluating an AI assistant (a cartoon-animal persona named Kian) \
+talking to a young child (grade 3). You will be given 20 prompt-response \
+pairs from one conversation.
 
-Important notes:
-- The spelling "cheetae" for "cheetah" is acceptable, not an error.
-- In prompt 8 (storytelling), factual liberties are fine — animals can \
-talk, race each other, have human attributes, etc. Only count errors \
-in prompts 2-7 where factual accuracy matters.
+Kian should stay in character as a cartoon animal. Breaking character \
+includes any of:
+- Mentioning being an AI, language model, assistant, chatbot, or software
+- Using the phrase "cartoon animal" or otherwise naming the persona type
+- Referring to its training, knowledge cutoff, or model
+- Assuming context that wasn't provided (e.g., "in your science class", \
+"your teacher said", "on the worksheet")
 
-Answer these questions with ONLY a number for each:
+Distinguish imaginative from factual prompts yourself:
+- Imaginative: stories, game suggestions, preference questions like \
+"do you like turtles?" — factual errors don't apply.
+- Factual: science questions, comparisons, explanations, historical or \
+mythological questions — factual errors matter.
 
-ERROR_COUNT: How many of prompts 2-7 had an answer that included factual \
-errors or broke the 4th wall (e.g., mentioning "your science class", \
-referencing being an AI, or saying things that do not make sense)? \
-Do not count prompts 1 or 8.
+The spelling "cheetae" for "cheetah" is acceptable, not an error.
 
-CHATTY_COUNT: How many of prompts 1, 2, 3, 4, and 7 had answers that \
-were more than a sentence or two, OR that used unnecessarily repetitive \
-phrases (e.g., starting every answer with "Great question!" or "That's \
-a great question!", repeating the same filler across responses, or \
-echoing the same phrase multiple times within a single response)? \
-(These should be short, concise, and natural-sounding responses.)
+Answer with ONLY a number or short string for each:
 
-POOR_PROSE_COUNT: Of prompts 5, 6, and 8: prompt 5 should explain well \
-why animals differ in speed, prompt 6 should explain how muscles work in \
-a way a child can understand, and prompt 8 should be an entertaining \
-short story for a child. How many of these 3 had poor prose — weak \
-explanations, repetitive or formulaic structure, or language that would \
-not engage a child? (0-3, where 0 means all three were good)
+OVERALL: Score the conversation from 1 (poor) to 5 (excellent), weighing \
+naturalness, engagement, age-appropriateness, and freedom from the issues \
+below.
 
-FLUB: From prompts 2-7, quote the single worst flub — something clearly \
-wrong, not just imprecise. Real flubs include: stating a completely \
-wrong animal or speed (e.g., "tuna swim 150 mph"), nonsensical phrases \
-(e.g., "muscles get hot and glow"), ungrammatical sentences, or \
-breaking the 4th wall by referencing being an AI or cartoon (e.g., \
-"I am only a cartoon animal so"). NOT flubs: imprecise but defensible \
-statements, encouraging phrases like "great question for your science \
-class", or mild simplifications appropriate for a child. \
-Max 10 words, quoted verbatim from the response. If there are none, write "none".
+FOURTH_WALL_BREAKS: Count of responses that broke the cartoon-animal \
+persona. 0 if none.
+
+FACTUAL_ERRORS: Count of responses on factual prompts that contained \
+clear factual errors. Skip imaginative prompts. 0 if none.
+
+FLUB: The single most notable flub from the conversation — a broken- \
+character moment, a factual howler, or a nonsensical phrase. Quoted \
+verbatim from the response, max 10 words. If nothing noteworthy, "none".
 
 Reply in EXACTLY this format, nothing else:
-ERROR_COUNT: <number>
-CHATTY_COUNT: <number>
-POOR_PROSE_COUNT: <number>
+OVERALL: <1-5>
+FOURTH_WALL_BREAKS: <number>
+FACTUAL_ERRORS: <number>
 FLUB: <quote or none>"""
+
+
+def strip_dummy_prompts(conversation: str) -> str:
+    """Remove prompt blocks whose User: line matches a cache-warming probe."""
+    blocks = re.split(r"(?=^--- Prompt \d+ ---$)", conversation, flags=re.MULTILINE)
+    kept = []
+    for block in blocks:
+        m = re.search(r"^User: (.+)$", block, flags=re.MULTILINE)
+        if m and m.group(1).strip() in SINGLE_TOKEN_PROMPTS:
+            continue
+        kept.append(block)
+    return "".join(kept)
 
 
 def extract_engines(log_path: Path) -> dict[str, str]:
@@ -110,7 +122,7 @@ def evaluate(conversation: str) -> dict | None:
     stdin_text = RUBRIC + "\n\n--- CONVERSATION ---\n" + conversation
     try:
         result = subprocess.run(
-            ["claude", "-p"],
+            ["claude", "-p", "--model", "claude-opus-4-6"],
             input=stdin_text,
             capture_output=True,
             text=True,
@@ -127,12 +139,12 @@ def evaluate(conversation: str) -> dict | None:
             print(f"    {result.stderr.strip()}", file=sys.stderr)
         return None
 
-    errors = re.search(r"ERROR_COUNT:\s*(\d+)", response)
-    chatty = re.search(r"CHATTY_COUNT:\s*(\d+)", response)
-    poor_prose = re.search(r"POOR_PROSE_COUNT:\s*(\d+)", response)
+    overall = re.search(r"OVERALL:\s*(\d+)", response)
+    fourth_wall = re.search(r"FOURTH_WALL_BREAKS:\s*(\d+)", response)
+    factual = re.search(r"FACTUAL_ERRORS:\s*(\d+)", response)
     flub = re.search(r"FLUB:\s*(.+)", response)
 
-    if not (errors and chatty and poor_prose):
+    if not (overall and fourth_wall and factual):
         print(f"    WARNING: could not parse response:", file=sys.stderr)
         print(f"    {response}", file=sys.stderr)
         return None
@@ -140,9 +152,9 @@ def evaluate(conversation: str) -> dict | None:
     flub_text = flub.group(1).strip().strip('"') if flub else "none"
 
     return {
-        "errors": int(errors.group(1)),
-        "chatty": int(chatty.group(1)),
-        "poor_prose": int(poor_prose.group(1)),
+        "overall": int(overall.group(1)),
+        "fourth_wall": int(fourth_wall.group(1)),
+        "factual_errors": int(factual.group(1)),
         "flub": flub_text,
     }
 
@@ -175,6 +187,8 @@ def main():
 
         for engine, conversation in engines.items():
             name = DISPLAY_NAMES.get(engine, engine)
+            # Strip cache-warming probe prompts before evaluation
+            conversation = strip_dummy_prompts(conversation)
             # Show first line of each prompt response
             print(f"\n  {name}:", file=sys.stderr)
             for line in conversation.splitlines():
@@ -189,9 +203,9 @@ def main():
                 scores[engine].append((run_name, result))
                 flub_str = f' flub="{result["flub"]}"' if result["flub"] != "none" else ""
                 print(
-                    f"    => errors={result['errors']} "
-                    f"chatty={result['chatty']} "
-                    f"poor_prose={result['poor_prose']}{flub_str}",
+                    f"    => overall={result['overall']} "
+                    f"4th-wall={result['fourth_wall']} "
+                    f"factual={result['factual_errors']}{flub_str}",
                     file=sys.stderr,
                 )
 
@@ -202,7 +216,7 @@ def main():
     # Identify the evaluator model
     try:
         model_result = subprocess.run(
-            ["claude", "-p", "Reply with ONLY your model name and version, nothing else."],
+            ["claude", "-p", "--model", "claude-opus-4-6", "Reply with ONLY your model name and version, nothing else."],
             capture_output=True, text=True, timeout=30,
         )
         evaluator = model_result.stdout.strip() if model_result.returncode == 0 else "unknown"
@@ -211,12 +225,12 @@ def main():
 
     print(f"\nEvaluator: {evaluator}")
 
-    # Sort by mean errors ascending, then prose descending
+    # Sort by mean overall descending, then factual errors ascending as tiebreaker
     engines_sorted = sorted(
         scores.keys(),
         key=lambda e: (
-            sum(s["errors"] for _, s in scores[e]) / len(scores[e]),
-            sum(s["poor_prose"] for _, s in scores[e]) / len(scores[e]),
+            -sum(s["overall"] for _, s in scores[e]) / len(scores[e]),
+            sum(s["factual_errors"] for _, s in scores[e]) / len(scores[e]),
         ),
     )
 
@@ -236,7 +250,7 @@ def main():
         print(f"  Picking best flub for {name} ...", file=sys.stderr)
         try:
             pick = subprocess.run(
-                ["claude", "-p"],
+                ["claude", "-p", "--model", "claude-opus-4-6"],
                 input=(
                     f"These are flubs from an AI assistant called {name}. "
                     f"Pick the single most illustrative or amusing one. "
@@ -263,37 +277,37 @@ def main():
     # Print summary table
     print()
     print(
-        f"{'Engine':<35} {'Err Avg':>8} {'Err Max':>8} "
-        f"{'Chatty':>7} {'Poor Prose':>11}  n  Example flub"
+        f"{'Engine':<35} {'Overall':>8} {'4th-Wall':>9} "
+        f"{'Fact Err':>9} {'Fact Max':>9}  n  Example flub"
     )
-    print("-" * 110)
+    print("-" * 115)
     for engine in engines_sorted:
         name = DISPLAY_NAMES.get(engine, engine)
         s = [d for _, d in scores[engine]]
         n = len(s)
-        err_avg = sum(d["errors"] for d in s) / n
-        err_max = max(d["errors"] for d in s)
-        chatty_avg = sum(d["chatty"] for d in s) / n
-        poor_prose_avg = sum(d["poor_prose"] for d in s) / n
+        overall_avg = sum(d["overall"] for d in s) / n
+        fw_avg = sum(d["fourth_wall"] for d in s) / n
+        fact_avg = sum(d["factual_errors"] for d in s) / n
+        fact_max = max(d["factual_errors"] for d in s)
         flub = best_flubs.get(engine, "")
         flub_str = f'  "{flub}"' if flub else ""
         print(
-            f"{name:<35} {err_avg:>8.1f} {err_max:>8} "
-            f"{chatty_avg:>7.1f} {poor_prose_avg:>11.1f}  {n}{flub_str}"
+            f"{name:<35} {overall_avg:>8.1f} {fw_avg:>9.1f} "
+            f"{fact_avg:>9.1f} {fact_max:>9}  {n}{flub_str}"
         )
 
     # Always write CSV
     csv_path = Path(args.csv)
     with open(csv_path, "w") as f:
-        f.write("Engine,Run,Errors,Chatty,PoorProse,Flub,BestFlub,Evaluator\n")
+        f.write("Engine,Run,Overall,FourthWall,FactualErrors,Flub,BestFlub,Evaluator\n")
         for engine in engines_sorted:
             best = best_flubs.get(engine, "")
             for run_name, d in scores[engine]:
                 flub_escaped = d["flub"].replace('"', '""')
                 best_escaped = best.replace('"', '""')
                 f.write(
-                    f"{engine},{run_name},{d['errors']},{d['chatty']},"
-                    f"{d['poor_prose']},\"{flub_escaped}\","
+                    f"{engine},{run_name},{d['overall']},{d['fourth_wall']},"
+                    f"{d['factual_errors']},\"{flub_escaped}\","
                     f"\"{best_escaped}\",\"{evaluator}\"\n"
                 )
     print(f"\nSaved to {csv_path}")
