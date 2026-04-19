@@ -27,6 +27,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PROMPTS = PROJECT_ROOT / "scripts" / "benchmark-prompts.txt"
 LOG_DIR = PROJECT_ROOT / "benchmark-logs"
 
+# Dummy prompts that simulate cache-warming inputs; cap at 1 token output.
+SINGLE_TOKEN_PROMPTS = {"Ummm", "Okay"}
+
 SYSTEM_PROMPT = (
     "You are Kian, a helpful educating cartoon animal -- but it's a secret. "
     "You are talking to an imaginative and curious child in grade 3. "
@@ -218,12 +221,16 @@ def bench_ollama(model: str, prompts: list[str], log_path: Path) -> list[dict]:
                   f"~{total_est} tokens remain after trim (trigger at {trim_high}, target {trim_low}), "
                   f"{len(history)} messages", file=sys.stderr)
 
+        options = {"num_ctx": 2048}
+        if prompt in SINGLE_TOKEN_PROMPTS:
+            options["num_predict"] = 1
+
         body = json.dumps({
             "model": model,
             "messages": history,
             "stream": True,
             "think": False,
-            "options": {"num_ctx": 2048},
+            "options": options,
         }).encode()
 
         req = Request(
@@ -431,13 +438,16 @@ def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[di
                       f"~{total_est} tokens remain after trim (trigger at {trim_high}, target {trim_low}), "
                       f"{len(history)} messages", file=sys.stderr)
 
-            body = json.dumps({
+            body_dict = {
                 "model": model_name,
                 "messages": history,
                 "stream": True,
                 "temperature": 0.5,
                 "top_p": 0.85,
-            }).encode()
+            }
+            if prompt in SINGLE_TOKEN_PROMPTS:
+                body_dict["max_tokens"] = 1
+            body = json.dumps(body_dict).encode()
 
             req = Request(
                 f"{SERVER_URL}/v1/chat/completions",
@@ -590,7 +600,10 @@ def _llamacpp_subprocess(model_name: str, prompts: list[str], log_path: str):
         token_count = 0
         full_response = []
 
-        response = llm.create_chat_completion(messages=history, stream=True)
+        chat_kwargs = {"messages": history, "stream": True}
+        if prompt in SINGLE_TOKEN_PROMPTS:
+            chat_kwargs["max_tokens"] = 1
+        response = llm.create_chat_completion(**chat_kwargs)
         for chunk in response:
             delta = chunk["choices"][0]["delta"]
             token = delta.get("content", "")

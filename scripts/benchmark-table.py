@@ -11,7 +11,6 @@ Usage:
 """
 
 import csv
-import math
 import re
 import sys
 from collections import defaultdict
@@ -48,75 +47,63 @@ def load_csv(path: Path) -> list[dict]:
 
 
 def summarize(rows: list[dict]) -> list[dict]:
-    """Group by Engine, compute Mean TTFT, SE, p95 TTFT, mean TPS, mean GPU%."""
+    """Group by Engine, compute TTFT stats split by trim/non-trim, plus mean tok/s."""
+    # Exclude single-token probe rows (e.g. "Ummm", "Okay") from stats.
+    rows = [r for r in rows if int(r.get("Tokens", 2)) > 1]
+
     groups: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         groups[r["Engine"]].append(r)
 
     results = []
     for engine, data in groups.items():
-        ttfts = [float(r["TTFT"]) for r in data]
         tps_vals = [float(r["TokPerSec"]) for r in data]
-        gpu_vals = [float(r["GPU%"]) for r in data]
-        n = len(ttfts)
+        mean_tps = sum(tps_vals) / len(tps_vals)
 
-        mean_ttft = sum(ttfts) / n
-        sd_ttft = math.sqrt(sum((x - mean_ttft) ** 2 for x in ttfts) / (n - 1)) if n > 1 else 0
-        se_ttft = sd_ttft / math.sqrt(n)
-        sorted_ttfts = sorted(ttfts)
-        p95_idx = min(int(math.ceil(0.95 * n)) - 1, n - 1)
-        p95_ttft = sorted_ttfts[p95_idx]
-        mean_tps = sum(tps_vals) / n
-        mean_gpu = sum(gpu_vals) / n
-        # VRAM/TotalRAM may not be present in older CSVs
-        vram_vals = [float(r.get("VRAM_GB", 0)) for r in data]
-        total_ram_vals = [float(r.get("TotalRAM_GB", 0)) for r in data]
-        mean_vram = sum(vram_vals) / n if vram_vals else 0
-        mean_total_ram = sum(total_ram_vals) / n if total_ram_vals else 0
-
-        # Post-trim TTFT: rows where Trimmed > 0
-        trim_rows = [r for r in data if int(r.get("Trimmed", 0)) > 0]
-        trim_events = len(trim_rows)
-        trim_ttft_sum = sum(float(r["TTFT"]) for r in trim_rows)
-        avg_trim_ttft = trim_ttft_sum / trim_events if trim_events else 0
+        # Split by trim status
+        nt_rows = [r for r in data if int(r.get("Trimmed", 0)) == 0]
+        tr_rows = [r for r in data if int(r.get("Trimmed", 0)) > 0]
+        nt_ttfts = [float(r["TTFT"]) for r in nt_rows]
+        tr_ttfts = [float(r["TTFT"]) for r in tr_rows]
 
         results.append({
             "engine": engine,
             "name": DISPLAY_NAMES.get(engine, engine),
-            "mean_ttft": mean_ttft,
-            "se": se_ttft,
-            "p95_ttft": p95_ttft,
+            "nt_avg": sum(nt_ttfts) / len(nt_ttfts) if nt_ttfts else 0,
+            "nt_max": max(nt_ttfts) if nt_ttfts else 0,
+            "tr_avg": sum(tr_ttfts) / len(tr_ttfts) if tr_ttfts else 0,
+            "tr_max": max(tr_ttfts) if tr_ttfts else 0,
             "tps": mean_tps,
-            "gpu": mean_gpu,
-            "vram": mean_vram,
-            "total_ram": mean_total_ram,
-            "n": n,
-            "trim_events": trim_events,
-            "avg_trim_ttft": avg_trim_ttft,
+            "n": len(data),
+            "n_nt": len(nt_rows),
+            "n_tr": len(tr_rows),
         })
 
-    results.sort(key=lambda r: r["mean_ttft"])
+    results.sort(key=lambda r: r["nt_avg"])
     return results
 
 
 def make_latex(stats: list[dict]) -> str:
     """Generate LaTeX tabular body (rows only, no begin/end table)."""
     lines = []
-    lines.append(r"\begin{tabular}{l|r|r|r|r|r}")
+    lines.append(r"\begin{tabular}{l|rr|rr|r}")
     lines.append(r"\toprule")
-    lines.append(r"Engine & Mean TTFT (s) & s.e.\ (s) & p95 TTFT (s) & tok/s & RAM (GB) \\")
+    lines.append(r"& \multicolumn{2}{c|}{Steady-State TTFT} & \multicolumn{2}{c|}{Post-Trim TTFT} & \\")
+    lines.append(r"Engine & Avg (s) & Max (s) & Avg (s) & Max (s) & tok/s \\")
     lines.append(r"\midrule")
 
-    def _row(r):
-        name = r["name"].replace("_", r"\_")
-        return (
-            f"{name} & {r['mean_ttft']:.3f} & {r['se']:.3f} & "
-            f"{r['p95_ttft']:.3f} & {r['tps']:.1f} & "
-            f"{r['total_ram']:.1f} \\\\"
-        )
-
     for r in stats:
-        lines.append(_row(r))
+        name = r["name"].replace("_", r"\_")
+        if r["n_tr"]:
+            tr_avg = f"{r['tr_avg']:.3f}"
+            tr_max = f"{r['tr_max']:.3f}"
+        else:
+            tr_avg = "---"
+            tr_max = "---"
+        lines.append(
+            f"{name} & {r['nt_avg']:.3f} & {r['nt_max']:.3f} & "
+            f"{tr_avg} & {tr_max} & {r['tps']:.1f} \\\\"
+        )
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
@@ -127,17 +114,21 @@ def make_latex(stats: list[dict]) -> str:
 
 
 def make_markdown(stats: list[dict]) -> str:
-    """Generate markdown table rows (full-offload models only)."""
+    """Generate markdown table."""
     lines = []
-    lines.append("| Engine | Mean TTFT | p95 TTFT | tok/s | GPU% | RAM |")
-    lines.append("|--------|-----------|----------|-------|------|-----|")
+    lines.append("| Engine | Avg TTFT | Max TTFT | Post-Trim Avg | Post-Trim Max | tok/s |")
+    lines.append("|--------|----------|----------|---------------|---------------|-------|")
 
-    full = [r for r in stats if r["gpu"] >= 99]
-    for r in full:
+    for r in stats:
+        if r["n_tr"]:
+            tr_avg = f"{r['tr_avg']:.2f}s"
+            tr_max = f"{r['tr_max']:.2f}s"
+        else:
+            tr_avg = "---"
+            tr_max = "---"
         lines.append(
-            f"| {r['name']} | {r['mean_ttft']:.2f}s | "
-            f"{r['p95_ttft']:.2f}s | {r['tps']:.1f} | {r['gpu']:.0f}% | "
-            f"{r['total_ram']:.1f} GB |"
+            f"| {r['name']} | {r['nt_avg']:.2f}s | {r['nt_max']:.2f}s | "
+            f"{tr_avg} | {tr_max} | {r['tps']:.1f} |"
         )
 
     return "\n".join(lines)
@@ -147,9 +138,9 @@ def update_readme(md_table: str):
     """Replace the benchmark table in README.md."""
     text = README.read_text()
 
-    # Match from the markdown table header to the blank line before "Models that"
+    # Match from the markdown table header to the blank line after the table
     pattern = re.compile(
-        r"(\| Engine \| Mean TTFT .*\n(?:\|.*\n)*)\n",
+        r"(\| Engine \| (?:Mean TTFT|Avg TTFT) .*\n(?:\|.*\n)*)\n",
         re.MULTILINE,
     )
     replacement = md_table + "\n\n"
@@ -169,24 +160,23 @@ def main():
 
     rows = load_csv(csv_path)
 
-    # Verify exactly 5 runs
-    EXPECTED_RUNS = 10
-    runs = set()
-    for r in rows:
-        if "Run" in r:
-            runs.add(r["Run"])
-    num_runs = len(runs) if runs else 1
-
     stats = summarize(rows)
 
     # Print summary to stdout
-    print(f"{'Engine':<40} {'TTFT':>8} {'SE':>6} {'p95':>8} {'tok/s':>6} {'GPU%':>5} {'VRAM':>6} {'RAM':>6} {'Trims':>6} {'TrimTTFT':>9}  n")
-    print("-" * 115)
+    hdr1 = f"{'':40} {'Steady-State TTFT':>17}  {'Post-Trim TTFT':>17}"
+    hdr2 = f"{'Engine':<40} {'Avg':>8} {'Max':>8}  {'Avg':>8} {'Max':>8}  {'tok/s':>6}   n"
+    print(hdr1)
+    print(hdr2)
+    print("-" * len(hdr2))
     for r in stats:
-        trim_str = f"{r['avg_trim_ttft']:.3f}" if r['trim_events'] else "---"
-        print(f"{r['name']:<40} {r['mean_ttft']:>8.3f} {r['se']:>6.3f} "
-              f"{r['p95_ttft']:>8.3f} {r['tps']:>6.1f} {r['gpu']:>5.0f} "
-              f"{r['vram']:>5.1f}G {r['total_ram']:>5.1f}G {r['trim_events']:>6} {trim_str:>9}  {r['n']}")
+        if r["n_tr"]:
+            tr_avg = f"{r['tr_avg']:>8.3f}"
+            tr_max = f"{r['tr_max']:>8.3f}"
+        else:
+            tr_avg = f"{'---':>8}"
+            tr_max = f"{'---':>8}"
+        print(f"{r['name']:<40} {r['nt_avg']:>8.3f} {r['nt_max']:>8.3f}  "
+              f"{tr_avg} {tr_max}  {r['tps']:>6.1f}  {r['n']:>3}")
 
     # Write LaTeX
     latex = make_latex(stats)

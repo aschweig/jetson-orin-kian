@@ -514,10 +514,18 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
             llm.set_wiki_context(None)
         llm_input = text
 
+        # Wait for any background KV cache warming to finish
+        if hasattr(llm, 'join_cache_warm'):
+            await llm.join_cache_warm()
+
         # LLM → TTS streaming (producer-consumer with barge-in)
         interrupted, naughty_hit, llm_loop, full_response = await _stream_response(
             llm, tts, llm_input, shutdown,
         )
+
+        # Pre-fill KV cache in background if a trim happened during this turn
+        if hasattr(llm, 'start_cache_warm'):
+            llm.start_cache_warm()
 
         if naughty_hit:
             llm.reset()

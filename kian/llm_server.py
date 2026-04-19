@@ -117,6 +117,8 @@ class ServerLLM:
         self._wiki_titles: list[str | None] = [None]
         self._on_evict_title: callable | None = None
         self._server_proc: subprocess.Popen | None = None
+        self._last_trimmed = False
+        self._warm_task: asyncio.Task | None = None
 
         if not _server_ready():
             self._server_proc = _start_server(model_path)
@@ -138,14 +140,52 @@ class ServerLLM:
             total = sum(len(m["content"]) // 3 for m in self._history)
             if total < trim_low:
                 break
+            self._last_trimmed = True
             for wiki_title in self._wiki_titles[1:3]:
                 if wiki_title and self._on_evict_title:
                     self._on_evict_title(wiki_title)
             del self._history[1:3]
             del self._wiki_titles[1:3]
 
+    async def warm_cache(self):
+        """Send a minimal request to pre-fill the server's KV cache after trim."""
+        self._last_trimmed = False
+        messages = self._history + [{"role": "user", "content": "ummm"}]
+        body = json.dumps({
+            "model": self.model_name,
+            "messages": messages,
+            "stream": False,
+            "max_tokens": 1,
+        }).encode()
+        req = Request(self._url, data=body, headers={"Content-Type": "application/json"})
+        loop = asyncio.get_event_loop()
+        t0 = time.monotonic()
+        try:
+            resp = await loop.run_in_executor(None, lambda: urlopen(req, timeout=30))
+            resp.close()
+        except (URLError, OSError) as e:
+            print(f"[WARM] cache warming failed: {e}")
+            return
+        print(f"[WARM] KV cache pre-filled in {time.monotonic() - t0:.1f}s")
+
+    def start_cache_warm(self):
+        """Start background KV cache warming if a trim just occurred."""
+        if self._last_trimmed:
+            self._warm_task = asyncio.create_task(self.warm_cache())
+
+    async def join_cache_warm(self):
+        """Await any pending cache warming task."""
+        task = self._warm_task
+        self._warm_task = None
+        if task is not None:
+            try:
+                await task
+            except Exception as e:
+                print(f"[WARM] error: {e}")
+
     async def chat_stream(self, user_text: str) -> AsyncIterator[str]:
         """Stream LLM response tokens via OpenAI-compatible API."""
+        await self.join_cache_warm()
         self._history.append({"role": "user", "content": user_text})
         self._wiki_titles.append(getattr(self, "_pending_wiki_title", None))
         self._pending_wiki_title = None
@@ -216,3 +256,7 @@ class ServerLLM:
         self._history = [{"role": "system", "content": system_prompt()}]
         self._wiki_titles = [None]
         self._wiki_context = None
+        self._last_trimmed = False
+        if self._warm_task is not None:
+            self._warm_task.cancel()
+            self._warm_task = None

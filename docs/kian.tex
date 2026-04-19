@@ -225,7 +225,7 @@ Table~\ref{tab:perf} summarizes latency and throughput; Table~\ref{tab:quality} 
 \centering
 \small
 \input{benchmark-table}
-\caption{Performance benchmarks on Jetson Orin Nano (8\,GB, headless). Mean and p95 TTFT over 10 runs $\times$ 8 prompts = 80 samples per engine. All models use Q4\_K\_M quantization and 2048-token context. RAM is total allocation reported by the runtime including KV cache.}
+\caption{Performance benchmarks on Jetson Orin Nano (8\,GB, headless). Steady-state and post-trim TTFT over 5 runs $\times$ 20 conversational prompts = 100 samples per engine. All models use Q4\_K\_M quantization and 2048-token context.}
 \label{tab:perf}
 \end{table}
 
