@@ -49,6 +49,11 @@ scored by {evaluator}. The columns are:
 - Fact Err Avg / Max: factual errors per conversation on factual prompts (lower is better)
 - Example flub: a representative broken-character moment, factual howler, or nonsensical phrase
 
+Note on engine naming: engines whose name ends with "-c<N>" (e.g. "-c1024") \
+were run with a REDUCED context window of N tokens; the default context is 2048 \
+tokens. These reduced-context variants are speed and trim-cost experiments, not \
+extended-context variants. Do not describe them as "extended-context".
+
 {table}
 
 Write 1-2 short paragraphs of discussion contrasting the strongest and weakest \

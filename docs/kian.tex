@@ -391,8 +391,11 @@ Probes that triggered a context trim are excluded so the figures isolate baselin
 
 Kian demonstrates that a practical, fully offline educational voice assistant can run on modest edge hardware.
 Recent advances in small-model quality and quantization make this class of system newly feasible:
-a 4-bit 4B-parameter model on an 8\,GB Jetson achieves sub-200\,ms mean time-to-first-token with no factual errors over our internal benchmark run,
+a 4-bit 4B-parameter model on an 8\,GB Jetson achieves sub-200\,ms mean time-to-first-token,
 while leaving enough headroom for a full speech pipeline and safety classifier.
+We consider \textbf{Qwen3-4B-Instruct-2507} and \textbf{Granite 4.0 H-Micro} to be strong candidates for this use case.
+The former offering natural-feeling conversations and the latter a low factual error rate;
+while both producing sufficiently fast inference to maintain engagement.
 
 The architectural bet is that privacy, connectivity independence, and child autonomy are worth the tradeoffs inherent in small on-device models---%
 limited context windows, narrower world knowledge, and imperfect content filtering.
