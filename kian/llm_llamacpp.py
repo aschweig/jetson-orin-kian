@@ -1,4 +1,18 @@
-"""LLM inference via llama-cpp-python."""
+"""LLM inference via llama-cpp-python.
+
+UNUSED — kept for historical reference. The `server` backend (llm_server.py)
+is now the default and is used for all benchmarks.
+
+Reason: llama-cpp-python's `create_chat_completion` has no automatic context
+shifting. When our context-trim band evicts old turns, the KV cache is
+invalidated and the entire remaining history is re-tokenized and re-evaluated
+from scratch. On Jetson Orin this added 30-60 seconds of latency to the first
+prompt after every trim event — vs ~1-3 seconds for the llama.cpp server
+(which uses native context shifting via the OpenAI-compatible API).
+
+To re-enable, register `llamacpp` in kian/llm.py::create_llm and pass
+`--backend llamacpp` on the CLI.
+"""
 
 import asyncio
 import queue

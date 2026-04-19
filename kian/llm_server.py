@@ -23,7 +23,7 @@ from kian.llm import system_prompt, update_system_prompt
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LLAMA_SERVER = PROJECT_ROOT / "vendor" / "prismml-llama.cpp" / "build" / "bin" / "llama-server"
-DEFAULT_MODEL = "Bonsai-8B.gguf"
+DEFAULT_MODEL = "qwen3-4b-instruct-2507-q4_k_m.gguf"
 HOST = "127.0.0.1"
 PORT = 8080
 NUM_CTX = 2048
@@ -102,7 +102,8 @@ def _resolve_model_path(model: str | None) -> str:
         return name
     raise FileNotFoundError(
         f"Model not found: {path}\n"
-        "Download it with: ./scripts/download-bonsai.sh"
+        "Download it with: ./scripts/download-models.sh "
+        "(or ./scripts/download-bonsai.sh for Bonsai-8B)"
     )
 
 

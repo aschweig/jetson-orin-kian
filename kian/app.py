@@ -554,8 +554,8 @@ async def pipeline(backend: str = "llamacpp", model: str | None = None):
 def parse_args():
     p = argparse.ArgumentParser(description="Kian voice assistant")
     p.add_argument(
-        "--backend", choices=["llamacpp", "ollama", "server"], default="llamacpp",
-        help="LLM backend (default: llamacpp)",
+        "--backend", choices=["server", "ollama", "llamacpp"], default="server",
+        help="LLM backend (default: server). 'llamacpp' is deprecated.",
     )
     p.add_argument(
         "--model",

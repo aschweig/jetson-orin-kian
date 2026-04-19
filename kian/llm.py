@@ -142,16 +142,24 @@ class LLMBackend(Protocol):
     def reset(self) -> None: ...
 
 
-def create_llm(backend: str = "llamacpp", model: str | None = None) -> LLMBackend:
+def create_llm(backend: str = "server", model: str | None = None) -> LLMBackend:
     """Factory: instantiate the requested LLM backend."""
-    if backend == "llamacpp":
-        from kian.llm_llamacpp import LlamaLLM
-        return LlamaLLM(model_path=model)
+    if backend == "server":
+        from kian.llm_server import ServerLLM
+        return ServerLLM(model=model)
     elif backend == "ollama":
         from kian.llm_ollama import OllamaLLM
         return OllamaLLM(model=model)
-    elif backend == "server":
-        from kian.llm_server import ServerLLM
-        return ServerLLM(model=model)
+    elif backend == "llamacpp":
+        import warnings
+        warnings.warn(
+            "The 'llamacpp' backend is deprecated: post-trim TTFT is "
+            "pathologically slow. See kian/llm_llamacpp.py for details. "
+            "Use --backend server instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from kian.llm_llamacpp import LlamaLLM
+        return LlamaLLM(model_path=model)
     else:
-        raise ValueError(f"Unknown backend: {backend!r}  (choose 'llamacpp', 'ollama', or 'server')")
+        raise ValueError(f"Unknown backend: {backend!r}  (choose 'server', 'ollama', or 'llamacpp')")

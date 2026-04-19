@@ -14,6 +14,8 @@ Usage:
 
 import argparse
 import json
+import re
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -306,12 +308,12 @@ def _server_ready() -> bool:
         return False
 
 
-def _start_llama_server(model_path: str) -> "subprocess.Popen":
+def _start_llama_server(model_path: str, n_ctx: int = 2048) -> "subprocess.Popen":
     import subprocess as sp
     cmd = [
         str(LLAMA_SERVER),
         "-m", model_path,
-        "-c", "2048",
+        "-c", str(n_ctx),
         "-ngl", "99",
         "-fa", "on",
         "-ctk", "q4_0",
@@ -349,13 +351,27 @@ def _stop_llama_server(proc: "subprocess.Popen"):
 
 
 def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[dict]:
-    """Benchmark a model via the PrismML llama-server (OpenAI-compatible API)."""
+    """Benchmark a model via the PrismML llama-server (OpenAI-compatible API).
+
+    A `-c<NUM>` suffix on the model_file (before .gguf) overrides the default
+    2048-token context (e.g. `granite-4.0-h-micro-Q4_K_M-c1024.gguf`).
+    """
     model_name = Path(model_file).stem
     engine_name = f"server:{model_name}"
-    model_path = str(PROJECT_ROOT / "models" / model_file)
+
+    # Parse optional "-c<NUM>" suffix to set context size, then strip it
+    # from the actual model file path on disk.
+    n_ctx = 2048
+    actual_file = model_file
+    m = re.search(r"-c(\d+)(\.gguf)?$", model_name)
+    if m:
+        n_ctx = int(m.group(1))
+        base = model_name[: m.start()]
+        actual_file = base + (".gguf" if model_file.endswith(".gguf") else "")
+    model_path = str(PROJECT_ROOT / "models" / actual_file)
 
     print(f"\n{'='*60}")
-    print(f"Engine: {engine_name}")
+    print(f"Engine: {engine_name}  (n_ctx={n_ctx})")
     print(f"{'='*60}")
 
     if not Path(model_path).exists():
@@ -369,7 +385,7 @@ def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[di
     # Unload any Ollama models to free GPU
     ollama_unload_all()
 
-    proc = _start_llama_server(model_path)
+    proc = _start_llama_server(model_path, n_ctx=n_ctx)
     try:
         model_size_gb = round(Path(model_path).stat().st_size / 1e9, 2)
 
@@ -389,8 +405,8 @@ def bench_server(model_file: str, prompts: list[str], log_path: Path) -> list[di
         print(f"  Model loaded.")
         time.sleep(2)
 
-        trim_high = 2048 * 9 // 10
-        trim_low = 2048 * 7 // 10
+        trim_high = n_ctx * 9 // 10
+        trim_low = n_ctx * 7 // 10
 
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
         results = []
@@ -729,16 +745,18 @@ ALL_ENGINES = [
     "ollama:granite4:3b",
     "ollama:nemotron-3-nano:4b",
     "ollama:gemma3:4b",
-    # llama-server (PrismML fork) — manages its own process lifecycle
+    # llama-server (PrismML fork) — manages its own process lifecycle.
+    # Replaces the deprecated llamacpp engines (llama-cpp-python had
+    # pathologically slow post-trim TTFT on Jetson; see kian/llm_llamacpp.py).
+    # A "-c<NUM>" suffix sets a non-default context size.
     "server:Bonsai-8B.gguf",
-    # llamacpp last — CUDA memory not reliably freed on Jetson after exit
-    "llamacpp:Qwen3.5-2B-Q4_K_M",
-    "llamacpp:granite-3.3-2b-instruct-Q4_K_M",
-    "llamacpp:ibm-granite_granite-4.0-micro-IQ4_XS",
-    "llamacpp:granite-4.0-micro-Q4_K_M",
-    "llamacpp:granite-4.0-h-micro-Q4_K_M",
-    "llamacpp:granite-4.0-h-micro-Q4_K_M-c1024",
-    "llamacpp:qwen3-4b-instruct-2507-q4_k_m",
+    "server:Qwen3.5-2B-Q4_K_M.gguf",
+    "server:granite-3.3-2b-instruct-Q4_K_M.gguf",
+    "server:ibm-granite_granite-4.0-micro-IQ4_XS.gguf",
+    "server:granite-4.0-micro-Q4_K_M.gguf",
+    "server:granite-4.0-h-micro-Q4_K_M.gguf",
+    "server:granite-4.0-h-micro-Q4_K_M-c1024.gguf",
+    "server:qwen3-4b-instruct-2507-q4_k_m.gguf",
 ]
 
 
@@ -785,15 +803,17 @@ def main():
 
     for engine in engines:
         try:
-            if engine.startswith("llamacpp:"):
-                model_name = engine[len("llamacpp:"):]
-                all_results.extend(bench_llamacpp(model_name, prompts, log_path))
-            elif engine.startswith("ollama:"):
+            if engine.startswith("ollama:"):
                 model = engine[len("ollama:"):]
                 all_results.extend(bench_ollama(model, prompts, log_path))
             elif engine.startswith("server:"):
                 model_file = engine[len("server:"):]
                 all_results.extend(bench_server(model_file, prompts, log_path))
+            elif engine.startswith("llamacpp:"):
+                model_name = engine[len("llamacpp:"):]
+                print(f"WARNING: 'llamacpp:' engine is deprecated; use 'server:' instead. "
+                      f"Falling back to bench_llamacpp.", file=sys.stderr)
+                all_results.extend(bench_llamacpp(model_name, prompts, log_path))
             else:
                 print(f"Unknown engine: {engine}", file=sys.stderr)
                 sys.exit(1)
