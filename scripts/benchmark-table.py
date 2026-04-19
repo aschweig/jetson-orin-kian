@@ -108,15 +108,16 @@ def make_latex(stats: list[dict]) -> str:
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
-    lines.append(r"\vspace{2pt}")
-    lines.append(r"\noindent{\footnotesize All models achieved 100\% GPU offload.\textsuperscript{$\dagger$}}")
-    lines.append(r"\noindent{\footnotesize \textsuperscript{$\dagger$}\,Kernel page cache from prior model loads (via \texttt{mmap}) was cleared between engines using \texttt{drop\_caches} to ensure full offload on Jetson unified memory.}")
     return "\n".join(lines)
 
 
 def summarize_probes(rows: list[dict]) -> list[dict]:
-    """Per-engine TTFT stats on the single-token probe prompts ("Ummm", "Okay")."""
-    rows = [r for r in rows if int(r.get("Tokens", 2)) == 1]
+    """Per-engine TTFT stats on the single-token probe prompts ("Ummm", "Okay"),
+    restricted to probes that did not trigger a context trim."""
+    rows = [
+        r for r in rows
+        if int(r.get("Tokens", 2)) == 1 and int(r.get("Trimmed", 0)) == 0
+    ]
 
     groups: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
@@ -140,7 +141,7 @@ def summarize_probes(rows: list[dict]) -> list[dict]:
 
 
 def make_probe_latex(stats: list[dict]) -> str:
-    """LaTeX tabular body for the probe-prompt TTFT table."""
+    """LaTeX tabular body for the probe-prompt TTFT table (non-trim only)."""
     lines = []
     lines.append(r"\begin{tabular}{l|r|r}")
     lines.append(r"\toprule")
@@ -224,7 +225,7 @@ def main():
     LATEX_OUT.write_text(latex + "\n")
     print(f"\nWrote {LATEX_OUT}")
 
-    # Probe-prompt LaTeX (TTFT on "Ummm"/"Okay" filler inputs)
+    # Probe-prompt LaTeX (TTFT on "Ummm"/"Okay" filler inputs, non-trim only)
     probe_stats = summarize_probes(rows)
     if probe_stats:
         probe_latex = make_probe_latex(probe_stats)

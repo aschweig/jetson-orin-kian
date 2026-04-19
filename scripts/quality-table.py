@@ -123,7 +123,7 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
 
     # --- Scores table (no flubs) ---
     lines = [
-        r"\begin{table}[h]",
+        r"\begin{table}[H]",
         r"\centering",
         r"\small",
         r"\begin{tabular}{l|r|r|r|r}",
@@ -189,7 +189,7 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
 
     # --- Flubs table ---
     lines.append("")
-    lines.append(r"\begin{table}[h]")
+    lines.append(r"\begin{table}[H]")
     lines.append(r"\centering")
     lines.append(r"\small")
     lines.append(r"\begin{tabular}{l|l}")
@@ -225,7 +225,11 @@ def make_latex(scores: dict, best_flubs: dict, evaluator: str) -> str:
         if result.returncode == 0 and result.stdout.strip():
             # Strip thinking tags and non-ASCII to avoid pdflatex errors
             import re
-            discussion = re.sub(r"<think>.*?</think>\s*", "", result.stdout.strip(), flags=re.DOTALL)
+            discussion = result.stdout.strip()
+            # Remove <think>...</think>, <thinking>...</thinking>, and any
+            # antml-prefixed variants that some Claude harnesses emit.
+            discussion = re.sub(r"<(?:antml:)?thinking>.*?</(?:antml:)?thinking>\s*", "", discussion, flags=re.DOTALL)
+            discussion = re.sub(r"<think>.*?</think>\s*", "", discussion, flags=re.DOTALL)
             discussion = "".join(c if ord(c) < 128 else "*" for c in discussion)
         else:
             print("    WARNING: claude -p failed, using placeholder", file=sys.stderr)

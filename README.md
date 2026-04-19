@@ -250,7 +250,7 @@ pulseaudio --start
 
 ## Benchmarks (Jetson Orin Nano, 8GB)
 
-Measured over 5 runs x 20 conversational prompts per engine. All models use Q4_K_M quantization and 2048-token context.
+Measured over 5 runs x 20 conversational prompts per engine. Unless otherwise noted, models use Q4_K_M quantization and a 2048-token context.
 
 | Engine | Avg TTFT | Max TTFT | Post-Trim Avg | Post-Trim Max | tok/s |
 |--------|----------|----------|---------------|---------------|-------|
@@ -263,7 +263,7 @@ Measured over 5 runs x 20 conversational prompts per engine. All models use Q4_K
 | ollama:Granite 3.3-2B | 0.24s | 0.45s | 1.13s | 1.41s | 25.8 |
 | ollama:Granite 4-3B | 0.36s | 0.47s | 1.32s | 1.56s | 18.5 |
 | server:Bonsai-8B | 0.48s | 0.79s | 2.61s | 2.90s | 13.7 |
-| ollama:Llama 3.2-3B | 0.52s | 0.63s | 1.41s | 1.66s | 19.1 |
+| ollama:Llama 3.2-3B | 0.53s | 0.63s | 1.41s | 1.66s | 19.1 |
 | ollama:Qwen3-4B | 0.64s | 0.93s | 1.91s | 2.19s | 15.3 |
 | ollama:Ministral-3 3B | 0.71s | 0.95s | 1.66s | 1.78s | 19.5 |
 | server:Qwen3.5-2B-Q4_K_M | 0.72s | 0.92s | 1.11s | 1.18s | 22.9 |
