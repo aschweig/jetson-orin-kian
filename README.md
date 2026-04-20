@@ -4,6 +4,8 @@ A local voice assistant running entirely on-device. Designed for NVIDIA Jetson O
 
 ![WIP](wip.jpg)
 
+[Short demo video](https://www.youtube.com/shorts/Z58Afj55yX0)
+
 **Pipeline:** Mic → Silero VAD → faster-whisper (STT) → LLM → Piper (TTS) → Speaker
 
 Three LLM backends:
